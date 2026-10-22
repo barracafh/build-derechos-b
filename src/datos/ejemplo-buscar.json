@@ -1,0 +1,321 @@
+{
+  "perfil": {
+    "ubicacion": {
+      "municipio": "València",
+      "provincia": null,
+      "ccaa": null
+    },
+    "tipoSolicitante": "persona",
+    "edad": 24,
+    "situacion": "paro",
+    "hijos": 0,
+    "vivienda": "alquiler",
+    "ingresos": null,
+    "temas": [
+      "vivienda",
+      "empleo"
+    ]
+  },
+  "filtros": {
+    "temas": [
+      "vivienda",
+      "empleo"
+    ],
+    "finalidades": [
+      8,
+      6
+    ],
+    "palabrasClave": [
+      "vivienda",
+      "alquiler",
+      "rehabilitación",
+      "empleo",
+      "desempleo",
+      "formación",
+      "contratación",
+      "joven",
+      "jóvenes",
+      "juventud"
+    ],
+    "tiposBeneficiario": [
+      1
+    ]
+  },
+  "consultado": [
+    "Estado",
+    "Comunidad Valenciana",
+    "Diputación Provincial de Valencia",
+    "Ayuntamiento de Valencia"
+  ],
+  "noConsultado": [],
+  "origen": "api",
+  "consultadoEn": "2026-10-22T17:43:21.911Z",
+  "cita": "Origen de los datos: Intervención General de la Administración del Estado",
+  "avisos": [
+    "Se han descartado 2 con el plazo ya cerrado.",
+    "Se han descartado 2 de concesión directa (no se pueden solicitar).",
+    "Se han descartado 1 limitadas a otro territorio.",
+    "La IA no está disponible: el resultado se ha calculado con reglas sencillas."
+  ],
+  "resultados": [
+    {
+      "convocatoria": {
+        "numeroBDNS": "925677",
+        "titulo": "Resolución de 18 de agosto de 2026, de la Vicepresidencia Primera y Conselleria de Vivienda, Empleo, Juventud e Igualdad, por la que se aprueban las bases reguladoras y se convocan las ayudas del Bono Alquiler Joven para 2026",
+        "tituloValenciano": "Resolució de 18 d´agost de 2026, de la Vicepresidència Primera i Conselleria de Vivenda, Ocupació, Joventut i Igualtat, per la qual s'aproven les bases reguladores i es convoquen les ajudes del Bo Lloguer Jove per a 2026",
+        "ambito": "autonomica",
+        "organo": {
+          "nivel1": "AUTONOMICA",
+          "nivel2": "COMUNITAT VALENCIANA",
+          "nivel3": "SECRETARÍA AUTONÓMICA DE VIVIENDA"
+        },
+        "tipoConvocatoria": "Concurrencia competitiva - canónica",
+        "finalidad": "Acceso a la vivienda y fomento de la edificación",
+        "beneficiarios": [
+          "PERSONAS FÍSICAS QUE NO DESARROLLAN ACTIVIDAD ECONÓMICA"
+        ],
+        "regiones": [
+          "ES52 - COMUNIDAD VALENCIANA"
+        ],
+        "presupuestoTotal": 29800000,
+        "plazo": {
+          "inicio": null,
+          "fin": null,
+          "textoInicio": "A partir del día siguiente a la publicación del extracto en el DOGV",
+          "textoFin": "Quince días hábiles posteriores a la fecha de publicación",
+          "indefinido": false
+        },
+        "estado": "consultar",
+        "bases": {
+          "titulo": "Resolución de 18 de agosto de 2026, de la Vicepresidencia Primera y Conselleria de Vivienda, Empleo, Juventud e Igualdad, por la que se aprueban las bases reguladoras y se convocan las ayudas del Bono Alquiler Joven para 2026",
+          "url": "."
+        },
+        "sedeElectronica": "https://sede.gva.es/es/detall-tramit?id_proc=G110699",
+        "anuncios": [
+          {
+            "diario": "DOCV. D.O. DE LA COMUNITAT VALENCIANA",
+            "fecha": "2026-08-21",
+            "titulo": "Extracto de la RESOLUCIÓN de 18 de agosto de 2026, de aprobación de las bases reguladoras para la concesión de ayudas al alquiler Bono Alquiler Joven durante el ejercicio 2026, y convocatoria 2026.",
+            "url": "https://dogv.gva.es/va/resultat-dogv?signatura=2026/27322"
+          }
+        ],
+        "documentos": [
+          {
+            "descripcion": "Texto en otra lengua de la convocatoria",
+            "nombre": "20260625_Resolucin bases y convocatoria_26-006312_trad_REV_firmado.pdf",
+            "url": "https://www.infosubvenciones.es/bdnstrans/api/convocatorias/documentos?idDocumento=1529097"
+          },
+          {
+            "descripcion": "Texto en castellano de la convocatoria",
+            "nombre": "Resolución bases y convocatoria_después intervención_REV_firmado.pdf",
+            "url": "https://www.infosubvenciones.es/bdnstrans/api/convocatorias/documentos?idDocumento=1529096"
+          }
+        ],
+        "urlFicha": "https://www.infosubvenciones.es/bdnstrans/GE/es/convocatorias/925677",
+        "fechaRecepcion": "2026-08-19"
+      },
+      "encaje": "medio",
+      "motivo": "Coincide con palabras de tu descripción. Revisa si eres parte del colectivo al que se dirige.",
+      "aComprobar": [
+        "Revisa los requisitos en las bases"
+      ]
+    },
+    {
+      "convocatoria": {
+        "numeroBDNS": "935567",
+        "titulo": "RESOLUCIÓN de Vicepr. Primera y Conselleria de Vivienda, Empleo, Juventud e Igualdad que apruebam bases reguladoras de subvenciones para  limpieza y reparación  fachadas dañadas DANA 2024 y convocar subvenc 2026",
+        "tituloValenciano": "RESOLUCIÓ de la Vicep. Primera i Conselleria d'Habitatge, Ocupació, Joventut i Igualtat, que aproven bases reguladores de les subvencions per a la neteja i reparació de façanes danyades per la DANA de 2024 i es convoquen les subvenc 2026.",
+        "ambito": "autonomica",
+        "organo": {
+          "nivel1": "AUTONOMICA",
+          "nivel2": "COMUNITAT VALENCIANA",
+          "nivel3": "SECRETARÍA AUTONÓMICA DE VIVIENDA"
+        },
+        "tipoConvocatoria": "Concurrencia competitiva - canónica",
+        "finalidad": "Acceso a la vivienda y fomento de la edificación",
+        "beneficiarios": [
+          "GRAN EMPRESA",
+          "PERSONAS FÍSICAS QUE NO DESARROLLAN ACTIVIDAD ECONÓMICA",
+          "PERSONAS JURÍDICAS QUE NO DESARROLLAN ACTIVIDAD ECONÓMICA",
+          "PYME Y PERSONAS FÍSICAS QUE DESARROLLAN ACTIVIDAD ECONÓMICA"
+        ],
+        "regiones": [
+          "ES522 - Castellón / Castelló",
+          "ES523 - Valencia / València"
+        ],
+        "presupuestoTotal": 4000000,
+        "plazo": {
+          "inicio": null,
+          "fin": null,
+          "textoInicio": "Desde el día  siguiente de la publicación de la convocatoria",
+          "textoFin": "A los dos meses de su publicación.",
+          "indefinido": false
+        },
+        "estado": "consultar",
+        "bases": {
+          "titulo": "RESOLUCIÓN de Vicepr. Primera y Conselleria de Vivienda, Empleo, Juventud e Igualdad que apruebam bases reguladoras de subvenciones para  limpieza y reparación  fachadas dañadas DANA 2024 y convocar subvenc 2026",
+          "url": "https://habitatge.gva.es/es/web/arquitectura/ajudes/2026/f_dana"
+        },
+        "sedeElectronica": "https://sede.gva.es/es/detall-tramit?id_proc=G112523",
+        "anuncios": [
+          {
+            "diario": "DOCV. D.O. DE LA COMUNITAT VALENCIANA",
+            "fecha": "2026-10-22",
+            "titulo": "EXTRACTO de la Resolución de 14 de octubre de 2026, por la que se aprueban las bases reguladoras de las subvenciones para la limpieza y reparación de fachadas dañadas a consecuencia del temporal de viento y lluvias iniciado el 29 de octubre de 2024 en la Comunitat Valenciana, y se convocan las subvenciones para el ejercicio 2026.",
+            "url": "https://dogv.gva.es/va/resultat-dogv?signatura=2026/32844"
+          }
+        ],
+        "documentos": [
+          {
+            "descripcion": "EXTRACTO CASTELLANO_F_DANA",
+            "nombre": "6. Extracto ayudas_F_DANA_castellano_rev_firmado.pdf",
+            "url": "https://www.infosubvenciones.es/bdnstrans/api/convocatorias/documentos?idDocumento=1539698"
+          },
+          {
+            "descripcion": "EXTRACTO VALENCIANO_F_DANA",
+            "nombre": "7. Extracto ayudas_F_DANA_valenciano_rev_firmado.pdf",
+            "url": "https://www.infosubvenciones.es/bdnstrans/api/convocatorias/documentos?idDocumento=1539699"
+          },
+          {
+            "descripcion": "Texto en castellano de la convocatoria",
+            "nombre": "4. BBRR+CONV AYUDAS FACHADAS F_DANA_post SUGS_CAST_rev_firmado.pdf",
+            "url": "https://www.infosubvenciones.es/bdnstrans/api/convocatorias/documentos?idDocumento=1539696"
+          },
+          {
+            "descripcion": "Texto en otra lengua de la convocatoria",
+            "nombre": "5. BBRR+CONV AYUDAS FACHADAS F_DANA_post SUGS_VAL_rev_firmado.pdf",
+            "url": "https://www.infosubvenciones.es/bdnstrans/api/convocatorias/documentos?idDocumento=1539697"
+          }
+        ],
+        "urlFicha": "https://www.infosubvenciones.es/bdnstrans/GE/es/convocatorias/935567",
+        "fechaRecepcion": "2026-10-15"
+      },
+      "encaje": "medio",
+      "motivo": "Coincide con palabras de tu descripción. Revisa si eres parte del colectivo al que se dirige.",
+      "aComprobar": [
+        "Revisa los requisitos en las bases"
+      ]
+    },
+    {
+      "convocatoria": {
+        "numeroBDNS": "935530",
+        "titulo": "RESOLUCIÓN de  Vicep. Primera y Conselleria de Vivienda, Empleo, Juventud e Igualdad de aprobación de bases reguladoras de subvenc. para la reparación o sustitución de ascensores dañados a consecuencia de la DANA 2024 y su convocatoria 2026.",
+        "tituloValenciano": "RESOLUCIÓ de Vicep. Primera i Conselleria d'Habitatge, Ocupació, Joventut i Igualtat, d'aprovació de les bases reguladores de les subvencions per a la reparació o substitució d'ascensors danyats com a conseqüència de DANA 2024, i es convoquen per a 2026.",
+        "ambito": "autonomica",
+        "organo": {
+          "nivel1": "AUTONOMICA",
+          "nivel2": "COMUNITAT VALENCIANA",
+          "nivel3": "SECRETARÍA AUTONÓMICA DE VIVIENDA"
+        },
+        "tipoConvocatoria": "Concurrencia competitiva - canónica",
+        "finalidad": "Acceso a la vivienda y fomento de la edificación",
+        "beneficiarios": [
+          "GRAN EMPRESA",
+          "PERSONAS FÍSICAS QUE NO DESARROLLAN ACTIVIDAD ECONÓMICA",
+          "PERSONAS JURÍDICAS QUE NO DESARROLLAN ACTIVIDAD ECONÓMICA",
+          "PYME Y PERSONAS FÍSICAS QUE DESARROLLAN ACTIVIDAD ECONÓMICA"
+        ],
+        "regiones": [
+          "ES522 - Castellón / Castelló",
+          "ES523 - Valencia / València"
+        ],
+        "presupuestoTotal": 4000000,
+        "plazo": {
+          "inicio": null,
+          "fin": null,
+          "textoInicio": "Desde el día siguiente al de la publicación de la convocatoría.",
+          "textoFin": "A los dos meses de su publicación.",
+          "indefinido": false
+        },
+        "estado": "consultar",
+        "bases": {
+          "titulo": "RESOLUCIÓN de  Vicep Primera y Conselleria de Vivienda, Empleo, Juventud e Igualdad de aprobación de bases reguladoras de subvenc. para la reparación o sustitución de ascensores dañados a consecuencia de la DANA 2024 y su convocatoria 2026.",
+          "url": "https://habitatge.gva.es/es/web/arquitectura/ajudes/2026/a2dana"
+        },
+        "sedeElectronica": "https://sede.gva.es/es/detall-tramit?id_proc=G112625",
+        "anuncios": [
+          {
+            "diario": "DOCV. D.O. DE LA COMUNITAT VALENCIANA",
+            "fecha": "2026-10-22",
+            "titulo": "EXTRACTO de la Resolución de 14 de octubre de 2026, por la que se aprueban las bases reguladoras de las subvenciones para la reparación o sustitución de ascensores dañados a consecuencia del temporal de viento y lluvias iniciado el 29 de octubre de 2024 en la Comunitat Valenciana, y se convocan las subvenciones para el ejercicio 2026.",
+            "url": "https://dogv.gva.es/va/resultat-dogv?signatura=2026/32843"
+          }
+        ],
+        "documentos": [
+          {
+            "descripcion": "Texto en castellano de la convocatoria",
+            "nombre": "BBRR+CONV A2DANA - Post SUGS_v6-CASTELLANO_rev_firmado.pdf",
+            "url": "https://www.infosubvenciones.es/bdnstrans/api/convocatorias/documentos?idDocumento=1539737"
+          },
+          {
+            "descripcion": "Extracto_castellano",
+            "nombre": "20261013_Extracto convocatoria_A2DANA_castellano_REV_firmado.pdf",
+            "url": "https://www.infosubvenciones.es/bdnstrans/api/convocatorias/documentos?idDocumento=1539740"
+          },
+          {
+            "descripcion": "EXTRACTO_Valenciano",
+            "nombre": "20261013_Extracto convocatoria_A2DANA_valenciano_REVv_firmado.pdf",
+            "url": "https://www.infosubvenciones.es/bdnstrans/api/convocatorias/documentos?idDocumento=1539739"
+          },
+          {
+            "descripcion": "Texto en otra lengua de la convocatoria",
+            "nombre": "BBRR+CONV A2DANA - Post SUGS_v6-VALENCIANO_rev_firmado.pdf",
+            "url": "https://www.infosubvenciones.es/bdnstrans/api/convocatorias/documentos?idDocumento=1539738"
+          }
+        ],
+        "urlFicha": "https://www.infosubvenciones.es/bdnstrans/GE/es/convocatorias/935530",
+        "fechaRecepcion": "2026-10-15"
+      },
+      "encaje": "medio",
+      "motivo": "Coincide con palabras de tu descripción. Revisa si eres parte del colectivo al que se dirige.",
+      "aComprobar": [
+        "Revisa los requisitos en las bases"
+      ]
+    }
+  ],
+  "sinCoincidencias": null,
+  "peticionesBdns": [
+    {
+      "url": "https://www.infosubvenciones.es/bdnstrans/api/regiones?vpd=GE",
+      "cache": true,
+      "ms": 0,
+      "ok": true,
+      "resultados": 30
+    },
+    {
+      "url": "https://www.infosubvenciones.es/bdnstrans/api/organos?vpd=GE&idAdmon=L",
+      "cache": true,
+      "ms": 0,
+      "ok": true,
+      "resultados": 50
+    },
+    {
+      "url": "https://www.infosubvenciones.es/bdnstrans/api/convocatorias/busqueda?vpd=GE&page=0&pageSize=50&order=fechaRecepcion&direccion=desc&fechaDesde=22%2F10%2F2025&tiposBeneficiario=1&tipoAdministracion=C",
+      "cache": false,
+      "ms": 439,
+      "ok": true,
+      "resultados": 305
+    },
+    {
+      "url": "https://www.infosubvenciones.es/bdnstrans/api/convocatorias/busqueda?vpd=GE&page=0&pageSize=50&order=fechaRecepcion&direccion=desc&fechaDesde=22%2F10%2F2025&tiposBeneficiario=1&tipoAdministracion=A&regiones=54%2C56%2C55%2C57",
+      "cache": false,
+      "ms": 939,
+      "ok": true,
+      "resultados": 84
+    },
+    {
+      "url": "https://www.infosubvenciones.es/bdnstrans/api/convocatorias/busqueda?vpd=GE&page=0&pageSize=50&order=fechaRecepcion&direccion=desc&fechaDesde=22%2F10%2F2025&tiposBeneficiario=1&tipoAdministracion=L&organos=2389%2C638%2C2387",
+      "cache": false,
+      "ms": 869,
+      "ok": true,
+      "resultados": 16
+    },
+    {
+      "url": "https://www.infosubvenciones.es/bdnstrans/api/convocatorias/busqueda?vpd=GE&page=0&pageSize=50&order=fechaRecepcion&direccion=desc&fechaDesde=22%2F10%2F2025&tiposBeneficiario=1&tipoAdministracion=L&organos=2903%2C2909%2C2938%2C2937%2C2935%2C2907%2C2934%2C2936%2C6582%2C2905%2C4558%2C6696%2C7325%2C2904%2C2906%2C2908",
+      "cache": false,
+      "ms": 1251,
+      "ok": true,
+      "resultados": 51
+    }
+  ]
+}
