@@ -4,9 +4,12 @@
 import alacant from "../../datos/indice/alacant.json";
 import castello from "../../datos/indice/castello.json";
 import valencia from "../../datos/indice/valencia.json";
+import provAlacant from "../../datos/indice/prov-alacant.json";
+import provCastello from "../../datos/indice/prov-castello.json";
+import provValencia from "../../datos/indice/prov-valencia.json";
 import { enSuTerritorio } from "../bdns/buscar";
 import { calcularEstado } from "../bdns/estado";
-import { normalizar } from "../bdns/territorio";
+import { normalizar, resolverTerritorio } from "../bdns/territorio";
 import type {
   ConvocatoriaIndexada,
   Indice,
@@ -17,7 +20,7 @@ import type {
 } from "../bdns/tipos";
 import { derivarFiltros, esJuridica, PREGUNTAS, tiposBeneficiario, type IdPregunta } from "../opciones";
 
-const INDICES = [valencia, alacant, castello]
+const INDICES = [valencia, alacant, castello, provValencia, provAlacant, provCastello]
   .map((i) => i as unknown as Indice)
   .filter((i) => i.convocatorias?.length);
 
@@ -28,21 +31,44 @@ const coincide = (a: string, b: string) => {
   return na.some((x) => nb.some((y) => x === y || ` ${y} `.includes(` ${x} `) || ` ${x} `.includes(` ${y} `)));
 };
 
-// Índice que cubre el municipio del ciudadano, si lo hay.
-export function indicePara(p: PerfilCiudadano): Indice | null {
-  const m = p.ubicacion.municipio;
-  if (!m) return null;
-  const propio = INDICES.find((i) => i.lugar?.municipio && coincide(m, i.lugar.municipio));
-  if (!propio) return null;
-  // Estado y comunidad: los de otro índice de la misma comunidad (un índice
-  // --solo-local no los trae), filtrados por el territorio de este.
-  const ccaa = propio.lugar.nuts?.slice(0, 4);
-  const vistos = new Set(propio.convocatorias.map((c) => c.numeroBDNS));
-  const compartidas = INDICES.filter((i) => i !== propio && ccaa && i.lugar.nuts?.startsWith(ccaa))
+// Junta los índices de su comunidad y se queda con lo que le corresponde:
+// Estado y comunidad (si no están limitadas a otro territorio), su diputación y
+// su ayuntamiento (organo.nivel2 es el municipio que convoca). Devuelve null si
+// no hay índice que cubra su ayuntamiento: entonces se busca en la API en vivo.
+export async function indicePara(
+  p: PerfilCiudadano,
+): Promise<{ indice: Indice; consultado: string[] } | null> {
+  const { municipio, provincia } = p.ubicacion;
+  if (!municipio && !provincia) return null;
+  const t = await resolverTerritorio(p.ubicacion).catch(() => null);
+  const nuts = t?.nuts;
+  if (!t || !nuts || nuts.length < 5) return null;
+  const deSuCcaa = INDICES.filter((i) => i.lugar?.nuts?.slice(0, 4) === nuts.slice(0, 4));
+  const nombres = [municipio, t.municipio?.nombre.replace(/^Ayuntamiento de /, "")].filter(Boolean) as string[];
+  const esSuyo = (x: string | null | undefined) => !!x && nombres.some((n) => coincide(n, x));
+  // Su ayuntamiento está cubierto por un índice de su ciudad o de su provincia.
+  const cubreLocal = deSuCcaa.some((i) => (i.lugar.municipio ? esSuyo(i.lugar.municipio) : i.lugar.nuts === nuts));
+  const cubreGeneral = deSuCcaa.some((i) => i.convocatorias.some((c) => c.ambito !== "local"));
+  if (!cubreLocal || !cubreGeneral) return null;
+
+  const vistos = new Set<string>();
+  const convocatorias = deSuCcaa
     .flatMap((i) => i.convocatorias)
-    .filter((c) => c.ambito !== "local" && !vistos.has(c.numeroBDNS) && vistos.add(c.numeroBDNS))
-    .filter((c) => enSuTerritorio({ ...c, extracto: null }, propio.lugar.nuts));
-  return { ...propio, convocatorias: [...propio.convocatorias, ...compartidas] };
+    .filter((c) => !vistos.has(c.numeroBDNS) && vistos.add(c.numeroBDNS))
+    .filter((c) => enSuTerritorio({ ...c, extracto: null }, nuts))
+    .filter(
+      (c) =>
+        c.ambito !== "local" ||
+        /^DIPUTACI/i.test(c.organo.nivel2) ||
+        esSuyo(c.organo.nivel2) ||
+        // Mancomunidades y consorcios: solo si exigen estar empadronado en su municipio.
+        esSuyo(c.requisitos?.quien.empadronamiento.municipio),
+    );
+  const generado = deSuCcaa.map((i) => i.generado).sort()[0];
+  return {
+    indice: { ...deSuCcaa[0], generado, convocatorias },
+    consultado: ["Estado", t.ccaa?.nombre, t.diputacion?.nombre, t.municipio?.nombre].filter(Boolean) as string[],
+  };
 }
 
 const SITUACION: Record<Situacion, string> = {

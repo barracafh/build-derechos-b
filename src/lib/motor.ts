@@ -10,8 +10,8 @@ import { buscarEnIndice, indicePara } from "./indice/buscar";
 
 export async function buscar(perfil: PerfilCiudadano): Promise<RespuestaBuscar> {
   // Si hay índice local para su municipio: sin BDNS ni IA, y con los requisitos.
-  const indice = indicePara(perfil);
-  if (indice && process.env.MOTOR_SIN_INDICE !== "1") return buscarLocal(perfil, indice);
+  const local = process.env.MOTOR_SIN_INDICE === "1" ? null : await indicePara(perfil);
+  if (local) return buscarLocal(perfil, local.indice, local.consultado);
   const { resultado, peticiones } = await conRegistro(() => buscarSinRegistro(perfil));
   return { ...resultado, peticionesBdns: peticiones };
 }
@@ -67,15 +67,12 @@ async function buscarSinRegistro(
   };
 }
 
-function buscarLocal(perfil: PerfilCiudadano, indice: Indice): RespuestaBuscar {
+function buscarLocal(perfil: PerfilCiudadano, indice: Indice, consultado: string[]): RespuestaBuscar {
   const { resultados, preguntasUtiles, descartadas } = buscarEnIndice(perfil, indice);
   const fecha = new Date(indice.generado).toLocaleDateString("es-ES", { timeZone: "Europe/Madrid" });
   const avisos = [`Datos de la BDNS a ${fecha}. Comprueba el plazo y los requisitos en la ficha oficial.`];
   if (descartadas)
     avisos.push(`Se han descartado ${descartadas} convocatorias cuyos requisitos no encajan con tu perfil.`);
-  const municipio = indice.lugar.municipio?.split("/")[0].trim();
-  const provincia = { valencia: "València", alacant: "Alacant", castello: "Castelló" }[indice.ambito] ?? municipio;
-  const consultado = ["Estado", "Comunitat Valenciana", `Diputación de ${provincia}`, `Ayuntamiento de ${municipio}`];
   return {
     perfil,
     filtros: derivarFiltros(perfil),

@@ -40,7 +40,7 @@ export async function explicar(
         role: "user",
         content: JSON.stringify({ perfil, convocatorias: cs.map(resumen) }),
       },
-    ]);
+    ], { rapido: true });
     const lista = leerJson(r);
     if (!Array.isArray(lista)) throw new Error("Formato inesperado");
     const porNumero = new Map(cs.map((c) => [c.numeroBDNS, c]));

@@ -4,6 +4,7 @@
 //   bun scripts/indexar.ts --limite=20        # prueba con las 20 más recientes
 //   bun scripts/indexar.ts --sin-ia           # solo descarga fichas (sin clave de HelmCode)
 //   bun scripts/indexar.ts --ambito=alacant --solo-local   # otra ciudad de la CV: solo ayuntamiento y diputación
+//   bun scripts/indexar.ts --ambito=prov-valencia     # todos los ayuntamientos de la provincia (también prov-alacant, prov-castello)
 //   bun scripts/indexar.ts --concurrencia=2 --meses=12
 // Reanudable: fichas y requisitos se guardan en scripts/.cache (no se sube).
 // Solo datos públicos de la BDNS: aquí no entra nada de ningún ciudadano.
@@ -31,6 +32,14 @@ const LUGARES: Record<string, { municipio: string; provincia: string | null; cca
   valencia: { municipio: "València", provincia: "Valencia", ccaa: null },
   castello: { municipio: "Castelló de la Plana / Castellón de la Plana", provincia: null, ccaa: null },
   alacant: { municipio: "Alacant / Alicante", provincia: null, ccaa: null },
+};
+
+// Todas las convocatorias locales de una provincia (todos sus ayuntamientos,
+// diputación, mancomunidades…). Estado y comunidad salen de otro índice de la CV.
+const PROVINCIAS: Record<string, { region: number; nuts: string; nombre: string }> = {
+  "prov-valencia": { region: 57, nuts: "ES523", nombre: "Locales de la provincia de València" },
+  "prov-alacant": { region: 55, nuts: "ES521", nombre: "Locales de la provincia d'Alacant" },
+  "prov-castello": { region: 56, nuts: "ES522", nombre: "Locales de la provincia de Castelló" },
 };
 
 const CACHE = join(process.cwd(), "scripts", ".cache");
@@ -85,19 +94,29 @@ async function ficha(n: string): Promise<any | null> {
 
 async function main() {
   const lugar = LUGARES[AMBITO];
-  if (!lugar) throw new Error(`Ámbito desconocido: ${AMBITO}. Opciones: ${Object.keys(LUGARES).join(", ")}`);
+  const provincia = PROVINCIAS[AMBITO];
+  if (!lugar && !provincia)
+    throw new Error(`Ámbito desconocido: ${AMBITO}. Opciones: ${[...Object.keys(LUGARES), ...Object.keys(PROVINCIAS)].join(", ")}`);
   log(`Indexando ${AMBITO}${LIMITE ? ` (límite ${LIMITE})` : ""}${SIN_IA ? " SIN IA" : ` con IA ×${CONCURRENCIA}`}`);
 
   // 1. Listar todas las convocatorias del territorio.
-  const t = await resolverTerritorio(lugar);
-  LUGAR = { municipio: lugar.municipio, nuts: t.nuts };
   // De lo más cercano a lo más lejano: el índice sirve ya a medio hacer.
   const busquedas: [string, Record<string, string>][] = [];
+  let nuts: string | null;
+  if (provincia) {
+    nuts = provincia.nuts;
+    LUGAR = { municipio: null, nuts };
+    busquedas.push([provincia.nombre, { tipoAdministracion: "L", regiones: String(provincia.region) }]);
+  } else {
+  const t = await resolverTerritorio(lugar);
+  nuts = t.nuts;
+  LUGAR = { municipio: lugar.municipio, nuts: t.nuts };
   if (t.municipio) busquedas.push([t.municipio.nombre, { tipoAdministracion: "L", organos: t.municipio.organos.join(",") }]);
   if (t.diputacion) busquedas.push([t.diputacion.nombre, { tipoAdministracion: "L", organos: t.diputacion.organos.join(",") }]);
   if (!SOLO_LOCAL) {
     if (t.ccaa) busquedas.push([t.ccaa.nombre, { tipoAdministracion: "A", regiones: t.ccaa.regiones.join(",") }]);
     busquedas.push(["Estado", { tipoAdministracion: "C" }]);
+  }
   }
 
   const vistos = new Set<string>();
@@ -143,7 +162,7 @@ async function main() {
         const c = { ...desdeApi(f), extracto: textoPlano(f.anuncios?.[0]?.texto, 6000) };
         if (/instrumental/i.test(c.tipoConvocatoria ?? "") || /nominativ/i.test(c.titulo)) descartes.instrumental++;
         else if (c.estado === "cerrada") descartes.cerrada++;
-        else if (!enSuTerritorio(c, t.nuts)) descartes.fuera++;
+        else if (!enSuTerritorio(c, nuts)) descartes.fuera++;
         else {
           while (enCurso >= CONCURRENCIA) await new Promise((r) => setTimeout(r, 200));
           enCurso++;
