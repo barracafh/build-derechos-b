@@ -1,19 +1,17 @@
 "use client";
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { cn } from "@/lib/utils";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Chat } from "@/components/Chat";
+import { Llamada } from "@/components/Llamada";
 import { PasoAPaso } from "@/components/PasoAPaso";
 import { Resultados } from "@/components/Resultados";
 import { ruta } from "@/config/sitio";
-import { buscarAyudas, type Busqueda } from "@/lib/ayudas";
+import { buscarAyudas } from "@/lib/ayudas";
 import type { RespuestaConvocatorias } from "@/lib/bdns";
 import {
   perfilVacio,
-  resumenPerfil,
   situaciones,
   viviendas,
   zonas,
@@ -38,34 +36,6 @@ const modos: Record<Modo, { nombre: string; texto: string }> = {
 
 const control =
   "h-11 w-full rounded-lg border border-input bg-transparent px-3 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
-
-async function extraerPerfil(texto: string, perfil: Perfil): Promise<Perfil> {
-  const res = await fetch(ruta("/api/perfil"), {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ texto, perfil }),
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok || !data.perfil)
-    throw new Error(data.error ?? "No hemos podido entender el texto.");
-  return data.perfil;
-}
-
-function resumenHablado(b: Busqueda): string {
-  if (!b.podrias.length)
-    return "Con lo que me has contado no encuentro ayudas abiertas que encajen. En pantalla tienes lo que no he podido consultar y dónde preguntar.";
-  const titulos = b.podrias.map((r) => r.ayuda.titulo.split(" (")[0]);
-  return `Podrías optar a ${titulos.length} ${titulos.length === 1 ? "ayuda" : "ayudas"}: ${titulos.join(", ")}. Comprueba los requisitos: tienes los detalles y los enlaces oficiales en pantalla.`;
-}
-
-function hablar(texto: string, alTerminar?: () => void) {
-  if (!("speechSynthesis" in window)) return alTerminar?.();
-  const voz = new SpeechSynthesisUtterance(texto);
-  voz.lang = "es-ES";
-  voz.onend = () => alTerminar?.();
-  window.speechSynthesis.cancel();
-  window.speechSynthesis.speak(voz);
-}
 
 function Formulario({
   perfil,
@@ -241,162 +211,6 @@ function Formulario({
   );
 }
 
-type Reconocimiento = {
-  lang: string;
-  continuous: boolean;
-  interimResults: boolean;
-  start(): void;
-  stop(): void;
-  onresult:
-    | ((e: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void)
-    | null;
-  onend: (() => void) | null;
-  onerror: (() => void) | null;
-};
-type ConstructorReconocimiento = new () => Reconocimiento;
-
-function Llamada({
-  perfil,
-  hayResultado,
-  onPerfil,
-}: {
-  perfil: Perfil;
-  hayResultado: boolean;
-  onPerfil: (p: Perfil) => void;
-}) {
-  const [soportado, setSoportado] = useState<boolean | null>(null);
-  const [fase, setFase] = useState<
-    "lista" | "saludo" | "escuchando" | "pensando"
-  >("lista");
-  const [transcripcion, setTranscripcion] = useState("");
-  const [aviso, setAviso] = useState("");
-  const reconocimiento = useRef<Reconocimiento | null>(null);
-  const texto = useRef("");
-
-  useEffect(() => {
-    const w = window as unknown as {
-      SpeechRecognition?: ConstructorReconocimiento;
-      webkitSpeechRecognition?: ConstructorReconocimiento;
-    };
-    setSoportado(Boolean(w.SpeechRecognition ?? w.webkitSpeechRecognition));
-    return () => {
-      reconocimiento.current?.stop();
-      if ("speechSynthesis" in window) window.speechSynthesis.cancel();
-    };
-  }, []);
-
-  async function procesar() {
-    const t = texto.current.trim();
-    if (!t) {
-      setFase("lista");
-      setAviso("No te he oído. Pulsa de nuevo y cuéntamelo.");
-      return;
-    }
-    setFase("pensando");
-    try {
-      const nuevo = await extraerPerfil(t, perfil);
-      onPerfil(nuevo);
-      hablar(resumenHablado(buscarAyudas(nuevo)));
-    } catch (err) {
-      setAviso((err as Error).message);
-    } finally {
-      setFase("lista");
-    }
-  }
-
-  function escuchar() {
-    const w = window as unknown as {
-      SpeechRecognition?: ConstructorReconocimiento;
-      webkitSpeechRecognition?: ConstructorReconocimiento;
-    };
-    const Ctor = w.SpeechRecognition ?? w.webkitSpeechRecognition;
-    if (!Ctor) return;
-    const r = new Ctor();
-    r.lang = "es-ES";
-    r.continuous = true;
-    r.interimResults = true;
-    r.onresult = (e) => {
-      texto.current = Array.from(e.results, (res) => res[0].transcript).join(
-        " ",
-      );
-      setTranscripcion(texto.current);
-    };
-    r.onerror = () =>
-      setAviso(
-        "No he podido usar el micrófono. Revisa los permisos del navegador.",
-      );
-    r.onend = procesar;
-    reconocimiento.current = r;
-    setFase("escuchando");
-    r.start();
-  }
-
-  function empezar() {
-    setAviso("");
-    setTranscripcion("");
-    texto.current = "";
-    setFase("saludo");
-    hablar(
-      "Hola. Cuéntame tu situación: tu edad, si trabajas, dónde vives, si vives de alquiler y si tienes hijos. Cuando termines, pulsa Terminar.",
-      escuchar,
-    );
-  }
-
-  if (soportado === false)
-    return (
-      <p className="text-base">
-        Tu navegador no permite hablar con la herramienta. Prueba en Chrome o
-        usa el chat.
-      </p>
-    );
-
-  return (
-    <div className="grid gap-5 text-base">
-      <p>
-        Habla como en una llamada: te escuchamos, te decimos en voz alta a qué
-        ayudas podrías optar y te dejamos el detalle en pantalla. No grabamos ni
-        guardamos lo que dices.
-      </p>
-      <div className="flex flex-wrap items-center gap-3">
-        {fase === "escuchando" ? (
-          <Button
-            variant="outline"
-            size="lg"
-            onClick={() => reconocimiento.current?.stop()}
-            className="h-11 px-4 text-base"
-          >
-            Terminar
-          </Button>
-        ) : (
-          <Button
-            variant={hayResultado ? "outline" : "sunset"}
-            size="lg"
-            onClick={empezar}
-            disabled={fase !== "lista" || soportado === null}
-            className="h-11 px-4 text-base"
-          >
-            {hayResultado ? "Volver a hablar" : "Empezar la llamada"}
-          </Button>
-        )}
-        <p role="status" className="text-(--text-secondary)">
-          {fase === "saludo" && "Escucha las instrucciones…"}
-          {fase === "escuchando" && "Te escucho…"}
-          {fase === "pensando" && "Buscando ayudas…"}
-        </p>
-      </div>
-      {transcripcion && (
-        <Card className="gap-2 bg-muted px-6 py-5 text-base ring-0">
-          <p className="text-sm font-medium text-(--text-secondary)">
-            Has dicho
-          </p>
-          <p>{transcripcion}</p>
-        </Card>
-      )}
-      {aviso && <p role="alert">{aviso}</p>}
-    </div>
-  );
-}
-
 // Pregunta antes de cerrar: al cerrar se borra lo que la persona ha contado.
 function Confirmar({
   abierta,
@@ -463,6 +277,7 @@ export function Buscador() {
   // En el formulario, los resultados salen al terminar las preguntas.
   const [formularioListo, setFormularioListo] = useState(false);
   const [chatListo, setChatListo] = useState(false);
+  const [llamadaLista, setLlamadaLista] = useState(false);
   const [perfil, setPerfil] = useState<Perfil>({});
   const [bdns, setBdns] = useState<RespuestaConvocatorias | "error" | null>(
     null,
@@ -491,6 +306,7 @@ export function Buscador() {
     setModo(null);
     setPerfil({});
     setFormularioListo(false);
+    setLlamadaLista(false);
     setChatListo(false);
   }
 
@@ -567,26 +383,28 @@ export function Buscador() {
                 )}
                 {modo === "llamada" && (
                   <Llamada
-                    perfil={perfil}
-                    hayResultado={hayResultado}
+                    bdns={bdns}
                     onPerfil={setPerfil}
+                    onCompleto={setLlamadaLista}
                   />
                 )}
 
-                {hayResultado && (modo === "llamada" || chatListo) && (
-                  <details className="rounded-xl px-5 py-4 text-base ring-1 ring-foreground/10">
-                    <summary className="cursor-pointer rounded-sm font-medium outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
-                      Corregir lo que he entendido
-                    </summary>
-                    <div className="mt-5">
-                      <Formulario perfil={perfil} onChange={setPerfil} />
-                    </div>
-                  </details>
-                )}
+                {hayResultado &&
+                  ((modo === "llamada" && llamadaLista) ||
+                    (modo === "chat" && chatListo)) && (
+                    <details className="rounded-xl px-5 py-4 text-base ring-1 ring-foreground/10">
+                      <summary className="cursor-pointer rounded-sm font-medium outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
+                        Corregir lo que he entendido
+                      </summary>
+                      <div className="mt-5">
+                        <Formulario perfil={perfil} onChange={setPerfil} />
+                      </div>
+                    </details>
+                  )}
               </section>
 
               {hayResultado &&
-                (modo === "llamada" ||
+                ((modo === "llamada" && llamadaLista) ||
                   (modo === "chat" && chatListo) ||
                   (modo === "formulario" && formularioListo)) && (
                   <Resultados perfil={perfil} busqueda={busqueda} bdns={bdns} />
