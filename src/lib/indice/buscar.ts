@@ -1,7 +1,10 @@
 // Buscador local: PerfilCiudadano × índice (src/datos/indice) → resultados, sin
 // llamar a la BDNS ni a la IA. Un requisito excluye solo si los dos lados se
 // conocen y chocan; si el perfil no tiene el dato, va a «aComprobar».
+import alacant from "../../datos/indice/alacant.json";
+import castello from "../../datos/indice/castello.json";
 import valencia from "../../datos/indice/valencia.json";
+import { enSuTerritorio } from "../bdns/buscar";
 import { calcularEstado } from "../bdns/estado";
 import { normalizar } from "../bdns/territorio";
 import type {
@@ -14,7 +17,9 @@ import type {
 } from "../bdns/tipos";
 import { derivarFiltros, esJuridica, PREGUNTAS, tiposBeneficiario, type IdPregunta } from "../opciones";
 
-const INDICES = [valencia as unknown as Indice].filter((i) => i.convocatorias?.length);
+const INDICES = [valencia, alacant, castello]
+  .map((i) => i as unknown as Indice)
+  .filter((i) => i.convocatorias?.length);
 
 // «València» coincide con «Valencia / València» y con «València (Marítimo)».
 const coincide = (a: string, b: string) => {
@@ -27,7 +32,17 @@ const coincide = (a: string, b: string) => {
 export function indicePara(p: PerfilCiudadano): Indice | null {
   const m = p.ubicacion.municipio;
   if (!m) return null;
-  return INDICES.find((i) => i.lugar?.municipio && coincide(m, i.lugar.municipio)) ?? null;
+  const propio = INDICES.find((i) => i.lugar?.municipio && coincide(m, i.lugar.municipio));
+  if (!propio) return null;
+  // Estado y comunidad: los de otro índice de la misma comunidad (un índice
+  // --solo-local no los trae), filtrados por el territorio de este.
+  const ccaa = propio.lugar.nuts?.slice(0, 4);
+  const vistos = new Set(propio.convocatorias.map((c) => c.numeroBDNS));
+  const compartidas = INDICES.filter((i) => i !== propio && ccaa && i.lugar.nuts?.startsWith(ccaa))
+    .flatMap((i) => i.convocatorias)
+    .filter((c) => c.ambito !== "local" && !vistos.has(c.numeroBDNS) && vistos.add(c.numeroBDNS))
+    .filter((c) => enSuTerritorio({ ...c, extracto: null }, propio.lugar.nuts));
+  return { ...propio, convocatorias: [...propio.convocatorias, ...compartidas] };
 }
 
 const SITUACION: Record<Situacion, string> = {

@@ -3,6 +3,7 @@
 //   bun scripts/indexar.ts                    # València (Generalitat, Diputación, Ayuntamiento y Estado)
 //   bun scripts/indexar.ts --limite=20        # prueba con las 20 más recientes
 //   bun scripts/indexar.ts --sin-ia           # solo descarga fichas (sin clave de HelmCode)
+//   bun scripts/indexar.ts --ambito=alacant --solo-local   # otra ciudad de la CV: solo ayuntamiento y diputación
 //   bun scripts/indexar.ts --concurrencia=2 --meses=12
 // Reanudable: fichas y requisitos se guardan en scripts/.cache (no se sube).
 // Solo datos públicos de la BDNS: aquí no entra nada de ningún ciudadano.
@@ -23,10 +24,13 @@ const LIMITE = Number(arg("limite", "0"));
 const SIN_IA = arg("sin-ia") === "1" || !process.env.HELMCODE_API_KEY;
 const CONCURRENCIA = Math.max(1, Math.min(4, Number(arg("concurrencia", "2"))));
 const MESES = Number(arg("meses", "12"));
+// Solo ayuntamiento y diputación: Estado y comunidad se comparten con el índice
+// de València (src/lib/indice/buscar.ts los reutiliza para toda la CV).
+const SOLO_LOCAL = arg("solo-local") === "1";
 const LUGARES: Record<string, { municipio: string; provincia: string | null; ccaa: string | null }> = {
   valencia: { municipio: "València", provincia: "Valencia", ccaa: null },
-  castello: { municipio: "Castelló de la Plana", provincia: null, ccaa: null },
-  alacant: { municipio: "Alacant", provincia: null, ccaa: null },
+  castello: { municipio: "Castelló de la Plana / Castellón de la Plana", provincia: null, ccaa: null },
+  alacant: { municipio: "Alacant / Alicante", provincia: null, ccaa: null },
 };
 
 const CACHE = join(process.cwd(), "scripts", ".cache");
@@ -91,8 +95,10 @@ async function main() {
   const busquedas: [string, Record<string, string>][] = [];
   if (t.municipio) busquedas.push([t.municipio.nombre, { tipoAdministracion: "L", organos: t.municipio.organos.join(",") }]);
   if (t.diputacion) busquedas.push([t.diputacion.nombre, { tipoAdministracion: "L", organos: t.diputacion.organos.join(",") }]);
-  if (t.ccaa) busquedas.push([t.ccaa.nombre, { tipoAdministracion: "A", regiones: t.ccaa.regiones.join(",") }]);
-  busquedas.push(["Estado", { tipoAdministracion: "C" }]);
+  if (!SOLO_LOCAL) {
+    if (t.ccaa) busquedas.push([t.ccaa.nombre, { tipoAdministracion: "A", regiones: t.ccaa.regiones.join(",") }]);
+    busquedas.push(["Estado", { tipoAdministracion: "C" }]);
+  }
 
   const vistos = new Set<string>();
   let numeros: string[] = [];

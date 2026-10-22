@@ -73,7 +73,9 @@ function buscarLocal(perfil: PerfilCiudadano, indice: Indice): RespuestaBuscar {
   const avisos = [`Datos de la BDNS a ${fecha}. Comprueba el plazo y los requisitos en la ficha oficial.`];
   if (descartadas)
     avisos.push(`Se han descartado ${descartadas} convocatorias cuyos requisitos no encajan con tu perfil.`);
-  const consultado = ["Estado", "Comunitat Valenciana", "Diputación de València", `Ayuntamiento de ${indice.lugar.municipio}`];
+  const municipio = indice.lugar.municipio?.split("/")[0].trim();
+  const provincia = { valencia: "València", alacant: "Alacant", castello: "Castelló" }[indice.ambito] ?? municipio;
+  const consultado = ["Estado", "Comunitat Valenciana", `Diputación de ${provincia}`, `Ayuntamiento de ${municipio}`];
   return {
     perfil,
     filtros: derivarFiltros(perfil),
