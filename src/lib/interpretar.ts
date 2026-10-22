@@ -26,7 +26,9 @@ Reglas:
 - Mantén lo que ya sabíamos salvo que el mensaje lo cambie.
 - Usa null si no se dice. No deduzcas ni inventes datos.
 - municipio: nombre oficial si lo dice (p. ej. "València", "Castelló de la Plana"). Si solo dice una comarca, municipio null, pero rellena la provincia si es inequívoca.
-- tipoSolicitante: "autonomo" solo si pide la ayuda para su actividad como autónomo; "persona" si la pide como particular (aunque trabaje como autónomo); null si no está claro.
+- tipoPersona: "juridica" si quien pide es una entidad (asociación, fundación, empresa, sociedad, club…); "fisica" si es una persona, también si es autónoma (eso va en situacion: "autonomo"); null si no está claro.
+- sexo: solo si se deduce sin duda del mensaje ("soy madre" → "mujer"); si no, null.
+- discapacidad y familia: solo si se dicen expresamente.
 - temas: solo los que la persona pide o describe como necesidad.`;
 
 export function leerJson(s: string): unknown {
@@ -74,9 +76,15 @@ function heuristico(texto: string): PerfilCiudadano {
     : tiene(/jubilad|pensi[oó]n/) ? "jubilado"
     : tiene(/estudi/) ? "estudiante"
     : tiene(/trabaj/) ? "empleo" : null;
-  if (tiene(/mi negocio|mi actividad|como aut[oó]nom/)) p.tipoSolicitante = "autonomo";
+  if (tiene(/asociaci[oó]n|fundaci[oó]n|empresa|sociedad|\bs\.?l\.?\b|cooperativa|\bclub\b|\bong\b/))
+    p.tipoPersona = "juridica";
+  else if (tiene(/\b(soy|tengo|vivo|estoy)\b/)) p.tipoPersona = "fisica";
   p.vivienda = tiene(/alquiler/) ? "alquiler" : tiene(/propiedad|hipoteca/) ? "propiedad" : null;
   p.ingresos = tiene(/ingresos bajos|pocos ingresos|pensi[oó]n m[ií]nima|no llego/) ? "bajos" : null;
+  p.sexo = tiene(/\b(mujer|madre|soy una|jubilada|parada|autónoma|autonoma|viuda)\b/) ? "mujer"
+    : tiene(/\b(hombre|padre|jubilado|parado|viudo)\b/) ? "hombre" : null;
+  p.familia = tiene(/familia numerosa/) ? "numerosa" : tiene(/monoparental/) ? "monoparental" : null;
+  if (tiene(/discapacidad|minusval/)) p.discapacidad = "si";
   const edad = t.match(/(\d{1,3})\s*años/);
   if (edad) p.edad = Number(edad[1]);
   const hijos = t.match(/(\d+)\s*hij/);

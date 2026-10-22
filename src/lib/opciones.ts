@@ -1,11 +1,14 @@
 // Catálogo del paso 1: qué se pregunta, con qué opciones, y cómo se traduce cada
 // respuesta a filtros de la BDNS. El front no ve ids de la BDNS: solo esto.
 import type {
+  Familia,
   Ingresos,
+  Sexo,
+  SiNo,
   PerfilCiudadano,
   Situacion,
   Tema,
-  TipoSolicitante,
+  TipoPersona,
   Vivienda,
 } from "./bdns/tipos";
 
@@ -13,11 +16,14 @@ type Opcion<T extends string> = { valor: T; etiqueta: string };
 
 export type Pregunta =
   | { id: "ubicacion"; pregunta: string; tipo: "ubicacion"; ayuda: string }
-  | { id: "tipoSolicitante"; pregunta: string; tipo: "opcion"; opciones: Opcion<TipoSolicitante>[] }
+  | { id: "tipoPersona"; pregunta: string; tipo: "opcion"; opciones: Opcion<TipoPersona>[] }
   | { id: "edad" | "hijos"; pregunta: string; tipo: "numero"; min: number; max: number }
   | { id: "situacion"; pregunta: string; tipo: "opcion"; opciones: Opcion<Situacion>[] }
   | { id: "vivienda"; pregunta: string; tipo: "opcion"; opciones: Opcion<Vivienda>[] }
   | { id: "ingresos"; pregunta: string; tipo: "opcion"; opciones: Opcion<Ingresos>[] }
+  | { id: "sexo"; pregunta: string; tipo: "opcion"; opciones: Opcion<Sexo>[] }
+  | { id: "discapacidad"; pregunta: string; tipo: "opcion"; opciones: Opcion<SiNo>[] }
+  | { id: "familia"; pregunta: string; tipo: "opcion"; opciones: Opcion<Familia>[] }
   | { id: "temas"; pregunta: string; tipo: "multiple"; opciones: Opcion<Tema>[] };
 
 export type IdPregunta = Pregunta["id"];
@@ -30,12 +36,12 @@ export const PREGUNTAS: Pregunta[] = [
     ayuda: "Municipio (mejor) o, si no, provincia o comunidad. GET /api/motor/perfil/municipios?q= sugiere nombres.",
   },
   {
-    id: "tipoSolicitante",
-    pregunta: "¿Pides la ayuda como particular o para tu actividad de autónomo?",
+    id: "tipoPersona",
+    pregunta: "¿Quién pide la ayuda?",
     tipo: "opcion",
     opciones: [
-      { valor: "persona", etiqueta: "Como particular" },
-      { valor: "autonomo", etiqueta: "Como autónomo o autónoma" },
+      { valor: "fisica", etiqueta: "Una persona (también si eres autónomo)" },
+      { valor: "juridica", etiqueta: "Una entidad: asociación, fundación o empresa" },
     ],
   },
   { id: "edad", pregunta: "¿Cuántos años tienes?", tipo: "numero", min: 0, max: 120 },
@@ -70,6 +76,34 @@ export const PREGUNTAS: Pregunta[] = [
       { valor: "bajos", etiqueta: "Bajos" },
       { valor: "medios", etiqueta: "Medios" },
       { valor: "altos", etiqueta: "Altos" },
+    ],
+  },
+  {
+    id: "sexo",
+    pregunta: "¿Eres mujer u hombre?",
+    tipo: "opcion",
+    opciones: [
+      { valor: "mujer", etiqueta: "Mujer" },
+      { valor: "hombre", etiqueta: "Hombre" },
+    ],
+  },
+  {
+    id: "discapacidad",
+    pregunta: "¿Tienes reconocida una discapacidad?",
+    tipo: "opcion",
+    opciones: [
+      { valor: "si", etiqueta: "Sí" },
+      { valor: "no", etiqueta: "No" },
+    ],
+  },
+  {
+    id: "familia",
+    pregunta: "¿Tu familia es numerosa o monoparental?",
+    tipo: "opcion",
+    opciones: [
+      { valor: "numerosa", etiqueta: "Familia numerosa" },
+      { valor: "monoparental", etiqueta: "Familia monoparental" },
+      { valor: "ninguna", etiqueta: "Ninguna de las dos" },
     ],
   },
   {
@@ -108,12 +142,14 @@ const TEMAS: Record<Tema, { finalidad: number; palabras: string[] }> = {
 // Temas que se deducen del resto del perfil aunque no se marquen.
 function temasImplicitos(p: PerfilCiudadano): Tema[] {
   const t: Tema[] = [];
+  if (esJuridica(p)) return t; // son circunstancias personales: no aplican a una entidad
   if (p.situacion === "paro") t.push("empleo");
   if (esAutonomo(p)) t.push("emprendimiento");
   if (p.situacion === "estudiante") t.push("educacion");
   if (p.situacion === "jubilado") t.push("servicios_sociales");
   if (p.vivienda === "alquiler") t.push("vivienda");
   if ((p.hijos ?? 0) > 0) t.push("familia", "educacion");
+  if (p.familia === "numerosa" || p.familia === "monoparental") t.push("familia");
   if (p.ingresos === "bajos") t.push("servicios_sociales");
   return t;
 }
@@ -125,33 +161,46 @@ export type FiltrosPerfil = {
   tiposBeneficiario: number[];
 };
 
-// Si no lo dice, se deduce de la situación laboral.
-export const esAutonomo = (p: PerfilCiudadano) =>
-  p.tipoSolicitante ? p.tipoSolicitante === "autonomo" : p.situacion === "autonomo";
+export const esJuridica = (p: PerfilCiudadano) => p.tipoPersona === "juridica";
+export const esAutonomo = (p: PerfilCiudadano) => !esJuridica(p) && p.situacion === "autonomo";
+
+// Tipos de beneficiario de la BDNS (catálogo /beneficiarios):
+// 1 personas físicas que no desarrollan actividad económica
+// 2 personas jurídicas que no desarrollan actividad económica (asociaciones…)
+// 3 pymes y personas físicas que desarrollan actividad económica (autónomos)
+// 4 gran empresa: no se busca, la herramienta es para la ciudadanía.
+export function tiposBeneficiario(p: PerfilCiudadano): number[] {
+  if (esJuridica(p)) return [2, 3];
+  // Un autónomo puede pedir como particular (familia, vivienda) y por su actividad.
+  if (esAutonomo(p)) return [1, 3];
+  return [1];
+}
 
 export function derivarFiltros(p: PerfilCiudadano): FiltrosPerfil {
   const temas = [...new Set([...p.temas, ...temasImplicitos(p)])];
   const palabras = temas.flatMap((t) => TEMAS[t].palabras);
-  if (p.edad != null && p.edad < 36) palabras.push("joven", "jóvenes", "juventud");
-  if (p.edad != null && p.edad >= 65) palabras.push("mayores");
+  if (!esJuridica(p) && p.edad != null && p.edad < 36) palabras.push("joven", "jóvenes", "juventud");
+  if (!esJuridica(p) && p.edad != null && p.edad >= 65) palabras.push("mayores");
+  if (esJuridica(p)) palabras.push("entidades", "asociaciones");
   return {
     temas,
     finalidades: [...new Set(temas.map((t) => TEMAS[t].finalidad))],
     palabrasClave: [...new Set(palabras)],
-    // 1 personas físicas que no desarrollan actividad económica;
-    // 3 pymes y personas físicas que desarrollan actividad económica (autónomos).
-    tiposBeneficiario: esAutonomo(p) ? [3] : [1],
+    tiposBeneficiario: tiposBeneficiario(p),
   };
 }
 
 export const perfilVacio = (): PerfilCiudadano => ({
   ubicacion: { municipio: null, provincia: null, ccaa: null },
-  tipoSolicitante: null,
+  tipoPersona: null,
   edad: null,
   situacion: null,
   hijos: null,
   vivienda: null,
   ingresos: null,
+  sexo: null,
+  discapacidad: null,
+  familia: null,
   temas: [],
 });
 
@@ -176,12 +225,15 @@ export function validarPerfil(x: unknown): PerfilCiudadano {
   const temas = valores<Tema>("temas");
   return {
     ubicacion: { municipio: str(u.municipio), provincia: str(u.provincia), ccaa: str(u.ccaa) },
-    tipoSolicitante: uno<TipoSolicitante>(o.tipoSolicitante, "tipoSolicitante"),
+    tipoPersona: uno<TipoPersona>(o.tipoPersona, "tipoPersona"),
     edad: num(o.edad, 120),
     situacion: uno<Situacion>(o.situacion, "situacion"),
     hijos: num(o.hijos, 20),
     vivienda: uno<Vivienda>(o.vivienda, "vivienda"),
     ingresos: uno<Ingresos>(o.ingresos, "ingresos"),
+    sexo: uno<Sexo>(o.sexo, "sexo"),
+    discapacidad: uno<SiNo>(o.discapacidad, "discapacidad"),
+    familia: uno<Familia>(o.familia, "familia"),
     temas: [...new Set((Array.isArray(o.temas) ? o.temas : []).filter((t): t is Tema => temas.includes(t)))],
   };
 }
@@ -194,26 +246,36 @@ export function combinarPerfiles(antes: PerfilCiudadano, ahora: PerfilCiudadano)
       provincia: ahora.ubicacion.provincia ?? antes.ubicacion.provincia,
       ccaa: ahora.ubicacion.ccaa ?? antes.ubicacion.ccaa,
     },
-    tipoSolicitante: ahora.tipoSolicitante ?? antes.tipoSolicitante,
+    tipoPersona: ahora.tipoPersona ?? antes.tipoPersona,
     edad: ahora.edad ?? antes.edad,
     situacion: ahora.situacion ?? antes.situacion,
     hijos: ahora.hijos ?? antes.hijos,
     vivienda: ahora.vivienda ?? antes.vivienda,
     ingresos: ahora.ingresos ?? antes.ingresos,
+    sexo: ahora.sexo ?? antes.sexo,
+    discapacidad: ahora.discapacidad ?? antes.discapacidad,
+    familia: ahora.familia ?? antes.familia,
     temas: [...new Set([...antes.temas, ...ahora.temas])],
   };
 }
 
 // Qué preguntas siguen sin respuesta, en el orden del catálogo.
 export function faltan(p: PerfilCiudadano): { id: IdPregunta; pregunta: string }[] {
+  const personal = !esJuridica(p);
   const vacia: Record<IdPregunta, boolean> = {
     ubicacion: !p.ubicacion.municipio && !p.ubicacion.provincia && !p.ubicacion.ccaa,
-    tipoSolicitante: p.tipoSolicitante == null && p.situacion !== "autonomo",
-    edad: p.edad == null,
-    situacion: p.situacion == null,
-    hijos: p.hijos == null,
-    vivienda: p.vivienda == null,
-    ingresos: p.ingresos == null,
+    tipoPersona: p.tipoPersona == null,
+    // Estas solo se preguntan a personas físicas.
+    edad: personal && p.edad == null,
+    situacion: personal && p.situacion == null,
+    hijos: personal && p.hijos == null,
+    vivienda: personal && p.vivienda == null,
+    ingresos: personal && p.ingresos == null,
+    // Opcionales: no se piden de entrada. El buscador local las pide si alguna
+    // convocatoria depende de ellas (aComprobar).
+    sexo: false,
+    discapacidad: false,
+    familia: false,
     temas: p.temas.length === 0 && temasImplicitos(p).length === 0,
   };
   return PREGUNTAS.filter((q) => vacia[q.id]).map((q) => ({ id: q.id, pregunta: q.pregunta }));

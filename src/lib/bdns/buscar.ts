@@ -82,7 +82,7 @@ function puntuar(titulo: string, claves: string[]) {
 
 // Excluye las del Estado limitadas a otras comunidades: se queda si alguna región
 // de la convocatoria contiene el territorio del ciudadano (ES ⊂ ES5 ⊂ ES52 ⊂ ES523).
-function enSuTerritorio(c: ConvocatoriaInterna, nuts: string | null) {
+export function enSuTerritorio(c: ConvocatoriaInterna, nuts: string | null) {
   if (!nuts || c.regiones.length === 0) return true;
   return c.regiones.some((r) => {
     const cod = r.split(" - ")[0].trim();

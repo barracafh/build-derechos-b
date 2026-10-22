@@ -21,18 +21,29 @@ El front elige cómo preguntar. La búsqueda solo recibe un `PerfilCiudadano`.
 ```ts
 {
   ubicacion: { municipio, provincia, ccaa },   // texto o null; con el municipio basta
-  tipoSolicitante: "persona" | "autonomo" | null,
+  tipoPersona: "fisica" | "juridica" | null,     // null cuenta como física
   edad: number | null,
   situacion: "paro" | "empleo" | "autonomo" | "jubilado" | "estudiante" | null,
   hijos: number | null,
   vivienda: "alquiler" | "propiedad" | "otra" | null,
   ingresos: "bajos" | "medios" | "altos" | null,
+  sexo: "mujer" | "hombre" | null,                // opcionales: los usa el índice local
+  discapacidad: "si" | "no" | null,
+  familia: "numerosa" | "monoparental" | "ninguna" | null,
   temas: ("vivienda" | "empleo" | "educacion" | "familia" | "energia" | "salud"
         | "servicios_sociales" | "emprendimiento" | "transporte" | "cultura")[]
 }
 ```
 
-- **`tipoSolicitante`** decide el tipo de beneficiario que se manda a la BDNS: `persona` → `tiposBeneficiario=1` (personas físicas), `autonomo` → `tiposBeneficiario=3` (autónomos y pymes). Si es `null`, se deduce de `situacion`.
+- **`tipoPersona` + `situacion`** deciden el tipo de beneficiario que se manda a la BDNS:
+
+  | Perfil | `tiposBeneficiario` |
+  |---|---|
+  | física | `1`: personas físicas sin actividad económica |
+  | física + `situacion: "autonomo"` | `1,3`: también como autónoma, para que vea las de familia **y** las de autónomos |
+  | jurídica | `2,3`: entidades sin actividad económica (asociaciones…) y pymes |
+
+  A una jurídica no se le aplican edad, hijos, vivienda, ingresos ni situación: `faltan` no los pide y no añaden temas.
 - Todo es opcional, pero `/api/buscar` pide al menos la ubicación o algo de la situación.
 - Los valores que no están en el catálogo se ignoran (se quedan en `null`).
 - La traducción a la BDNS (temas → finalidades y palabras clave, temas implícitos, edad → «joven» o «mayores») está en `src/lib/opciones.ts`.
@@ -85,6 +96,20 @@ Texto: «podrías optar», nunca «tienes derecho».
 5. **Caché en memoria**: `src/lib/bdns/cliente.ts`. Fichas 1 h, búsquedas 10 min y catálogos 24 h. Solo datos públicos; el texto del ciudadano ni se guarda ni se registra.
 
 `BDNS_FORZAR_COPIA=1` obliga a usar la copia `datos/bdns-convocatorias-cv.json`.
+
+## Índice local (nuestra propuesta de valor)
+La BDNS no filtra por sexo, edad, situación, familia ni empadronamiento: eso está en el texto. `scripts/indexar.ts` lo saca **una vez por convocatoria** con la IA y lo guarda en `src/datos/indice/valencia.json` (`RequisitosConvocatoria` en `tipos.ts`).
+
+```
+bun scripts/indexar.ts --sin-ia        # solo fichas (1/s, ~1 h para València; reanudable)
+bun scripts/indexar.ts --limite=20     # prueba con IA
+bun scripts/indexar.ts                 # todo, con IA ×2 (reutiliza las fichas de scripts/.cache)
+```
+
+- Cada requisito lleva una **cita literal** del extracto; si la cita no está en el texto, se descarta.
+- `[]` y `null` = «no lo dice»: nunca excluye. Excluye solo si el perfil y la convocatoria se conocen y chocan (mujer ≠ hombre).
+- Si el perfil no tiene el dato, la convocatoria sale con `aComprobar` («Es solo para mujeres») y `preguntasUtiles` dice qué preguntar después.
+- Si el municipio del perfil tiene índice, `/api/buscar` responde en local: `origen: "indice"`, sin BDNS ni IA. Si no, usa la API en vivo. `MOTOR_SIN_INDICE=1` lo desactiva.
 
 ## Pendiente
 - Paso 3: la BDNS solo nos da las 50 convocatorias más recientes por administración. Se puede filtrar en origen por palabras del título (`descripcion` + `descripcionTipoBusqueda=2`).

@@ -13,7 +13,7 @@ const PERFILES = [
 const PERFIL_EJEMPLO = JSON.stringify(
   {
     ubicacion: { municipio: "Castelló de la Plana", provincia: null, ccaa: null },
-    tipoSolicitante: "autonomo",
+    tipoPersona: "fisica",
     edad: 38,
     situacion: "autonomo",
     hijos: 2,

@@ -5,7 +5,7 @@
       "provincia": null,
       "ccaa": null
     },
-    "tipoSolicitante": "persona",
+    "tipoPersona": "fisica",
     "edad": 24,
     "situacion": "paro",
     "hijos": 0,

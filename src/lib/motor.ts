@@ -2,12 +2,16 @@
 import { buscarConvocatorias } from "./bdns/buscar";
 import { conRegistro } from "./bdns/cliente";
 import { resolverTerritorio } from "./bdns/territorio";
-import { CITA, type PerfilCiudadano, type RespuestaBuscar } from "./bdns/tipos";
+import { CITA, type Indice, type PerfilCiudadano, type RespuestaBuscar } from "./bdns/tipos";
 import { explicar } from "./explicar";
 import { derivarFiltros } from "./opciones";
 import { interpretar } from "./interpretar";
+import { buscarEnIndice, indicePara } from "./indice/buscar";
 
 export async function buscar(perfil: PerfilCiudadano): Promise<RespuestaBuscar> {
+  // Si hay índice local para su municipio: sin BDNS ni IA, y con los requisitos.
+  const indice = indicePara(perfil);
+  if (indice && process.env.MOTOR_SIN_INDICE !== "1") return buscarLocal(perfil, indice);
   const { resultado, peticiones } = await conRegistro(() => buscarSinRegistro(perfil));
   return { ...resultado, peticionesBdns: peticiones };
 }
@@ -60,5 +64,31 @@ async function buscarSinRegistro(
       ? null
       : `No hemos encontrado convocatorias abiertas que encajen en ${datos.consultado.join(", ") || "la BDNS"}. ` +
         "Esto no quiere decir que no haya ayudas para ti: consulta la BDNS o los servicios sociales de tu ayuntamiento.",
+  };
+}
+
+function buscarLocal(perfil: PerfilCiudadano, indice: Indice): RespuestaBuscar {
+  const { resultados, preguntasUtiles, descartadas } = buscarEnIndice(perfil, indice);
+  const fecha = new Date(indice.generado).toLocaleDateString("es-ES", { timeZone: "Europe/Madrid" });
+  const avisos = [`Datos de la BDNS a ${fecha}. Comprueba el plazo y los requisitos en la ficha oficial.`];
+  if (descartadas)
+    avisos.push(`Se han descartado ${descartadas} convocatorias cuyos requisitos no encajan con tu perfil.`);
+  const consultado = ["Estado", "Comunitat Valenciana", "Diputación de València", `Ayuntamiento de ${indice.lugar.municipio}`];
+  return {
+    perfil,
+    filtros: derivarFiltros(perfil),
+    consultado,
+    noConsultado: [],
+    origen: "indice",
+    consultadoEn: indice.generado,
+    cita: CITA,
+    avisos,
+    resultados,
+    sinCoincidencias: resultados.length
+      ? null
+      : `No hemos encontrado convocatorias abiertas que encajen en ${consultado.join(", ")}. ` +
+        "Esto no quiere decir que no haya ayudas para ti: consulta la BDNS o los servicios sociales de tu ayuntamiento.",
+    preguntasUtiles,
+    peticionesBdns: [],
   };
 }

@@ -45,7 +45,7 @@ const SALIDA_BUSCAR: [string, string, string][] = [
 
 const PERFIL: [string, string, string][] = [
   ["ubicacion", "{ municipio, provincia, ccaa }", "Texto. Con el municipio basta: provincia y comunidad se deducen. Sin municipio, solo se consultan Estado y comunidad."],
-  ["tipoSolicitante", '"persona" | "autonomo" | null', "Decide el tipo de beneficiario en la BDNS: persona → 1, autónomo → 3. Si es null, se deduce de situacion."],
+  ["tipoPersona", '"fisica" | "juridica" | null', "Con situacion decide el tipo de beneficiario de la BDNS: física → 1; física con situacion autonomo → 1 y 3; jurídica → 2 y 3. null cuenta como física. A una jurídica no se le preguntan edad, hijos, vivienda, ingresos ni situación."],
   ["edad", "number | null", "Menos de 36 añade «joven»; 65 o más, «mayores»."],
   ["situacion", '"paro" | "empleo" | "autonomo" | "jubilado" | "estudiante" | null', "Añade temas implícitos (paro → empleo, estudiante → educación…)."],
   ["hijos", "number | null", "Más de 0 añade los temas familia y educación."],

@@ -85,7 +85,7 @@ export function resumenPerfil(p: PerfilCiudadano) {
   const lugar = p.ubicacion.municipio ?? p.ubicacion.provincia ?? p.ubicacion.ccaa;
   return [
     lugar,
-    p.tipoSolicitante && (p.tipoSolicitante === "autonomo" ? "como autónomo" : "como particular"),
+    p.tipoPersona && (p.tipoPersona === "juridica" ? "entidad (persona jurídica)" : "persona física"),
     p.edad != null && `${p.edad} años`,
     p.situacion,
     p.hijos != null && `${p.hijos} hijos`,

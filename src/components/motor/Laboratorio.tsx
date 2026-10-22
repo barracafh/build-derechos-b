@@ -17,12 +17,15 @@ type Falta = { id: string; pregunta: string };
 
 const VACIO: PerfilCiudadano = {
   ubicacion: { municipio: null, provincia: null, ccaa: null },
-  tipoSolicitante: null,
+  tipoPersona: null,
   edad: null,
   situacion: null,
   hijos: null,
   vivienda: null,
   ingresos: null,
+  sexo: null,
+  discapacidad: null,
+  familia: null,
   temas: [],
 };
 
