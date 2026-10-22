@@ -301,8 +301,11 @@ export function Buscador() {
       .catch(() => setBdns("error"));
   }, []);
 
+  // Formulario y llamada: con el perfil listo, buscan con el motor (y otra vez
+  // si se corrige el perfil). La llamada, además, se lo cuenta en voz.
   useEffect(() => {
-    if (modo !== "formulario" || !formularioListo) {
+    const listo = (modo === "formulario" && formularioListo) || (modo === "llamada" && llamadaLista);
+    if (!listo) {
       setRespuestaForm(null);
       return;
     }
@@ -319,7 +322,7 @@ export function Buscador() {
     return () => {
       vigente = false;
     };
-  }, [modo, formularioListo, perfil]);
+  }, [modo, formularioListo, llamadaLista, perfil]);
 
   useEffect(() => {
     const d = ventana.current;
@@ -425,23 +428,20 @@ export function Buscador() {
 
               {modo === "chat" && respuestaChat && <ResultadosMotor r={respuestaChat} />}
 
-              {modo === "formulario" && respuestaForm === "cargando" && (
+              {(modo === "formulario" || modo === "llamada") && respuestaForm === "cargando" && (
                 <p role="status" className="text-base text-(--text-secondary)">
                   Buscando las convocatorias a las que podrías optar…
                 </p>
               )}
-              {modo === "formulario" && respuestaForm === "error" && (
+              {(modo === "formulario" || modo === "llamada") && respuestaForm === "error" && (
                 <p role="status" className="text-base">
                   No hemos podido hacer la búsqueda. Cuéntanos al menos dónde vives o tu situación, o prueba en un momento.
                 </p>
               )}
-              {modo === "formulario" && respuestaForm && typeof respuestaForm === "object" && (
+              {(modo === "formulario" || modo === "llamada") && respuestaForm && typeof respuestaForm === "object" && (
                 <ResultadosMotor r={respuestaForm} />
               )}
 
-              {hayResultado && modo === "llamada" && llamadaLista && (
-                  <Resultados perfil={perfil} busqueda={busqueda} bdns={bdns} />
-                )}
             </div>
           </div>
         )}

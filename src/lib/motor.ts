@@ -11,7 +11,7 @@ import { buscarEnIndice, indicePara } from "./indice/buscar";
 export async function buscar(perfil: PerfilCiudadano): Promise<RespuestaBuscar> {
   // Si hay índice local para su municipio: sin BDNS ni IA, y con los requisitos.
   const local = process.env.MOTOR_SIN_INDICE === "1" ? null : await indicePara(perfil);
-  if (local) return buscarLocal(perfil, local.indice, local.consultado);
+  if (local) return buscarLocal(perfil, local.indice, local.consultado, local.noConsultado);
   const { resultado, peticiones } = await conRegistro(() => buscarSinRegistro(perfil));
   return { ...resultado, peticionesBdns: peticiones };
 }
@@ -67,7 +67,12 @@ async function buscarSinRegistro(
   };
 }
 
-function buscarLocal(perfil: PerfilCiudadano, indice: Indice, consultado: string[]): RespuestaBuscar {
+function buscarLocal(
+  perfil: PerfilCiudadano,
+  indice: Indice,
+  consultado: string[],
+  noConsultado: string[],
+): RespuestaBuscar {
   const { resultados, preguntasUtiles, descartadas } = buscarEnIndice(perfil, indice);
   const fecha = new Date(indice.generado).toLocaleDateString("es-ES", { timeZone: "Europe/Madrid" });
   const avisos = [`Datos de la BDNS a ${fecha}. Comprueba el plazo y los requisitos en la ficha oficial.`];
@@ -77,7 +82,7 @@ function buscarLocal(perfil: PerfilCiudadano, indice: Indice, consultado: string
     perfil,
     filtros: derivarFiltros(perfil),
     consultado,
-    noConsultado: [],
+    noConsultado,
     origen: "indice",
     consultadoEn: indice.generado,
     cita: CITA,

@@ -58,6 +58,22 @@ const PROVINCIA_A_NUTS2: Record<string, string> = {
 };
 
 // Nombres con que la gente llama a su comunidad y no salen tal cual en NUTS.
+// Nombres cortos con que se llama a una ciudad y que en la BDNS son otro
+// municipio o no existen («Castelló» a secas es Castelló de la Ribera).
+const ALIAS_MUNICIPIO: Record<string, string> = {
+  castellon: "Castellón de la Plana",
+  castello: "Castellón de la Plana",
+  "castello de la plana": "Castellón de la Plana",
+  alicante: "Alicante",
+  alacant: "Alicante",
+  valencia: "Valencia",
+  elche: "Elche",
+  elx: "Elche",
+  "palmas de gran canaria": "Palmas de Gran Canaria, Las",
+  "las palmas": "Palmas de Gran Canaria, Las",
+  "palma de mallorca": "Palma",
+};
+
 const ALIAS_CCAA: Record<string, string> = {
   "comunitat valenciana": "ES52",
   valencia: "ES52",
@@ -146,6 +162,8 @@ export async function resolverTerritorio(lugar: {
   if (lugar.provincia)
     provincia = organos.find((p) => coincide(lugar.provincia!, p.descripcion));
   if (lugar.municipio) {
+    const alias = ALIAS_MUNICIPIO[normalizar(lugar.municipio)[0] ?? ""];
+    if (alias) lugar = { ...lugar, municipio: alias };
     const enProvincia = (p: Nodo) =>
       (p.children ?? []).find(
         (m) =>

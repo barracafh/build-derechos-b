@@ -37,13 +37,29 @@ const coincide = (a: string, b: string) => {
 // no hay índice que cubra su ayuntamiento: entonces se busca en la API en vivo.
 export async function indicePara(
   p: PerfilCiudadano,
-): Promise<{ indice: Indice; consultado: string[] } | null> {
-  const { municipio, provincia } = p.ubicacion;
-  if (!municipio && !provincia) return null;
+): Promise<{ indice: Indice; consultado: string[]; noConsultado: string[] } | null> {
+  const { municipio, provincia, ccaa } = p.ubicacion;
+  if (!municipio && !provincia && !ccaa) return null;
   const t = await resolverTerritorio(p.ubicacion).catch(() => null);
   const nuts = t?.nuts;
-  if (!t || !nuts || nuts.length < 5) return null;
+  if (!t || !nuts || nuts.length < 4) return null;
   const deSuCcaa = INDICES.filter((i) => i.lugar?.nuts?.slice(0, 4) === nuts.slice(0, 4));
+  if (!deSuCcaa.length) return null;
+
+  // Solo sabemos la comunidad: Estado y comunidad desde el índice, sin locales.
+  if (nuts.length === 4) {
+    const vistos = new Set<string>();
+    const convocatorias = deSuCcaa
+      .flatMap((i) => i.convocatorias)
+      .filter((c) => c.ambito !== "local" && !vistos.has(c.numeroBDNS) && vistos.add(c.numeroBDNS))
+      .filter((c) => enSuTerritorio({ ...c, extracto: null }, nuts));
+    if (!convocatorias.length) return null;
+    return {
+      indice: { ...deSuCcaa[0], generado: deSuCcaa.map((i) => i.generado).sort()[0], convocatorias },
+      consultado: ["Estado", t.ccaa?.nombre].filter(Boolean) as string[],
+      noConsultado: [...t.noResuelto, "Ayuntamiento y diputación: dinos tu municipio para incluirlos"],
+    };
+  }
   const nombres = [municipio, t.municipio?.nombre.replace(/^Ayuntamiento de /, "")].filter(Boolean) as string[];
   const esSuyo = (x: string | null | undefined) => !!x && nombres.some((n) => coincide(n, x));
   // Su ayuntamiento está cubierto por un índice de su ciudad o de su provincia.
@@ -68,6 +84,7 @@ export async function indicePara(
   return {
     indice: { ...deSuCcaa[0], generado, convocatorias },
     consultado: ["Estado", t.ccaa?.nombre, t.diputacion?.nombre, t.municipio?.nombre].filter(Boolean) as string[],
+    noConsultado: [],
   };
 }
 

@@ -5,9 +5,12 @@ import { Mic, MicOff, Phone, PhoneOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { agenteVoz } from "@/config/voz";
 import { ruta } from "@/config/sitio";
-import { buscarAyudas } from "@/lib/ayudas";
-import { convocatoriasPara, type RespuestaConvocatorias } from "@/lib/bdns";
+import type { RespuestaBuscar } from "@/lib/bdns/tipos";
+import type { RespuestaConvocatorias } from "@/lib/bdns";
 import { limpiarPerfil, type Perfil } from "@/lib/perfil";
+import { aPerfilCiudadano } from "@/lib/perfil-motor";
+import { tituloCorto } from "@/lib/titulo-corto";
+import { textoPlazo } from "@/components/ResultadosMotor";
 
 type Linea = { quien: "usuario" | "ayudita"; texto: string };
 
@@ -20,33 +23,35 @@ type Props = {
 const prefiereMenosMovimiento = () =>
   window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-// Lo que la herramienta devuelve al agente: lo mismo que calculan las reglas
-// del formulario y del chat, sin enlaces (esos van en la pantalla).
-function resultadoParaVoz(
-  perfil: Perfil,
-  bdns: RespuestaConvocatorias | "error" | null,
-) {
-  const b = buscarAyudas(perfil);
-  const convocatorias =
-    bdns && bdns !== "error"
-      ? convocatoriasPara(bdns.convocatorias, perfil).encajan
-      : [];
+// Lo que la herramienta devuelve al agente: lo mismo que ven el chat y el
+// formulario (motor: POST /api/buscar), sin enlaces (esos van en la pantalla).
+async function buscarParaVoz(perfil: Perfil) {
+  const res = await fetch(ruta("/api/buscar"), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ perfil: aPerfilCiudadano(perfil) }),
+  });
+  if (!res.ok)
+    return JSON.stringify({
+      error: "Para buscar necesito al menos saber dónde vive o su situación. Pregúntaselo.",
+    });
+  const r: RespuestaBuscar = await res.json();
+  // Mismas claves que espera el prompt del agente (scripts/agente-voz.ts).
+  const otra = r.preguntasUtiles?.[0]?.pregunta;
   return JSON.stringify({
-    podrias: b.podrias.map((r) => ({
-      nombre: r.ayuda.titulo,
-      motivos: r.motivos,
-      plazo: r.estado.texto,
-      aviso: r.ayuda.verificado
-        ? undefined
-        : "La ley cambió el 20/10/2026 y el procedimiento nuevo no está publicado: que pregunte en servicios sociales o en el 012.",
+    podrias: r.resultados.slice(0, 5).map((x) => ({
+      nombre: tituloCorto(x.convocatoria.titulo),
+      motivos: [x.motivo],
+      plazo: textoPlazo(x.convocatoria),
+      aComprobar: x.aComprobar,
     })),
-    convocatorias: convocatorias.map((c) => ({
-      nombre: c.convocatoria.titulo,
-      motivo: c.motivo,
-      plazo: c.estado.texto,
-    })),
-    cerradas: b.cerradas.map((r) => `${r.ayuda.titulo}: ${r.estado.texto}`),
-    huecos: b.huecos,
+    total: r.resultados.length,
+    cerradas: [],
+    huecos: [
+      ...r.noConsultado,
+      ...(r.sinCoincidencias ? [r.sinCoincidencias] : []),
+      ...(otra ? [`Para afinar más podrías preguntarle: ${otra}`] : []),
+    ],
   });
 }
 
@@ -54,6 +59,10 @@ function LlamadaEnCurso({ bdns, onPerfil, onCompleto }: Props) {
   const [lineas, setLineas] = useState<Linea[]>([]);
   const [aviso, setAviso] = useState("");
   const [silenciado, setSilenciado] = useState(false);
+  // Con los resultados en pantalla se cuelga: el agente no los lee en voz alta
+  // y la transcripción se oculta.
+  const [terminada, setTerminada] = useState(false);
+  const colgar = useRef<() => void>(() => {});
   const bdnsActual = useRef(bdns);
   const anillo = useRef<HTMLDivElement>(null);
   const transcripcion = useRef<HTMLOListElement>(null);
@@ -62,11 +71,14 @@ function LlamadaEnCurso({ bdns, onPerfil, onCompleto }: Props) {
   const conversacion = useConversation({
     micMuted: silenciado,
     clientTools: {
-      buscar_ayudas: (parametros: Record<string, unknown>) => {
+      buscar_ayudas: async (parametros: Record<string, unknown>) => {
         const perfil = limpiarPerfil(parametros);
         onPerfil(perfil);
         onCompleto(true);
-        return resultadoParaVoz(perfil, bdnsActual.current);
+        const respuesta = await buscarParaVoz(perfil);
+        setTerminada(true);
+        colgar.current();
+        return respuesta;
       },
     },
     onMessage: ({ message, role }) =>
@@ -84,6 +96,9 @@ function LlamadaEnCurso({ bdns, onPerfil, onCompleto }: Props) {
     },
   });
 
+  useEffect(() => {
+    colgar.current = () => conversacion.endSession();
+  });
   const { status, isSpeaking } = conversacion;
   const conectada = status === "connected";
 
@@ -113,6 +128,7 @@ function LlamadaEnCurso({ bdns, onPerfil, onCompleto }: Props) {
   async function llamar() {
     setAviso("");
     setLineas([]);
+    setTerminada(false);
     try {
       await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch {
@@ -199,6 +215,11 @@ function LlamadaEnCurso({ bdns, onPerfil, onCompleto }: Props) {
             </Button>
           )}
         </div>
+        {terminada && !conectada && (
+          <p role="status" className="max-w-md">
+            Listo. Abajo tienes las ayudas a las que podrías optar.
+          </p>
+        )}
         {aviso && (
           <p role="alert" className="max-w-md">
             {aviso}
@@ -206,7 +227,7 @@ function LlamadaEnCurso({ bdns, onPerfil, onCompleto }: Props) {
         )}
       </div>
 
-      {lineas.length > 0 && (
+      {lineas.length > 0 && !terminada && (
         <section aria-label="Transcripción de la llamada">
           <h3 className="text-sm font-medium text-(--text-secondary)">
             Transcripción
