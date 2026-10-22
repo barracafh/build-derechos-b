@@ -20,6 +20,10 @@ type Props = {
   onCompleto: (completo: boolean) => void;
 };
 
+// Lo último que dice el agente antes de colgar, con los resultados en pantalla.
+// Tiene que coincidir con el prompt de scripts/agente-voz.ts.
+const despedida = "Te paso la info en pantalla, espero te ayude, un saludo.";
+
 const prefiereMenosMovimiento = () =>
   window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -59,10 +63,14 @@ function LlamadaEnCurso({ bdns, onPerfil, onCompleto }: Props) {
   const [lineas, setLineas] = useState<Linea[]>([]);
   const [aviso, setAviso] = useState("");
   const [silenciado, setSilenciado] = useState(false);
-  // Con los resultados en pantalla se cuelga: el agente no los lee en voz alta
-  // y la transcripción se oculta.
+  // Con los resultados en pantalla el agente se despide y se cuelga: no los lee
+  // en voz alta y la transcripción se oculta.
   const [terminada, setTerminada] = useState(false);
   const colgar = useRef<() => void>(() => {});
+  // "no": sin resultados; "esperando": falta que diga la despedida;
+  // "diciendo": ya la está diciendo, se cuelga cuando acabe.
+  const despedirse = useRef<"no" | "esperando" | "diciendo">("no");
+  const reserva = useRef<ReturnType<typeof setTimeout>>(undefined);
   const bdnsActual = useRef(bdns);
   const anillo = useRef<HTMLDivElement>(null);
   const transcripcion = useRef<HTMLOListElement>(null);
@@ -75,17 +83,30 @@ function LlamadaEnCurso({ bdns, onPerfil, onCompleto }: Props) {
         const perfil = limpiarPerfil(parametros);
         onPerfil(perfil);
         onCompleto(true);
-        const respuesta = await buscarParaVoz(perfil);
+        const respuesta = JSON.parse(await buscarParaVoz(perfil));
+        if (respuesta.error) return JSON.stringify(respuesta);
         setTerminada(true);
-        colgar.current();
-        return respuesta;
+        despedirse.current = "esperando";
+        // Por si el agente no llega a despedirse.
+        reserva.current = setTimeout(() => colgar.current(), 15000);
+        return JSON.stringify({
+          ...respuesta,
+          instruccion: `Los resultados ya están en pantalla. Di solo esta frase, tal cual, y nada más: «${despedida}»`,
+        });
       },
     },
-    onMessage: ({ message, role }) =>
+    onMessage: ({ message, role }) => {
+      if (role !== "user" && despedirse.current === "esperando")
+        despedirse.current = "diciendo";
       setLineas((l) => [
         ...l,
         { quien: role === "user" ? "usuario" : "ayudita", texto: message },
-      ]),
+      ]);
+    },
+    onModeChange: ({ mode }) => {
+      if (mode === "listening" && despedirse.current === "diciendo")
+        colgar.current();
+    },
     onError: () =>
       setAviso("Se ha cortado la llamada. Prueba de nuevo o usa el chat."),
     onDisconnect: (detalles) => {
@@ -97,8 +118,13 @@ function LlamadaEnCurso({ bdns, onPerfil, onCompleto }: Props) {
   });
 
   useEffect(() => {
-    colgar.current = () => conversacion.endSession();
+    colgar.current = () => {
+      clearTimeout(reserva.current);
+      despedirse.current = "no";
+      conversacion.endSession();
+    };
   });
+  useEffect(() => () => clearTimeout(reserva.current), []);
   const { status, isSpeaking } = conversacion;
   const conectada = status === "connected";
 
@@ -196,7 +222,7 @@ function LlamadaEnCurso({ bdns, onPerfil, onCompleto }: Props) {
               <Button
                 variant="outline"
                 size="lg"
-                onClick={() => conversacion.endSession()}
+                onClick={() => colgar.current()}
                 className="h-12 gap-2 px-5 text-base"
               >
                 <PhoneOff aria-hidden="true" />
