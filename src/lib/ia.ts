@@ -10,7 +10,12 @@ export type Mensaje = {
   content: string | Parte[];
 };
 
-export async function completar(messages: Mensaje[]): Promise<string> {
+// `rapido`: sin razonamiento previo. El modelo razona por defecto (~4–13 s);
+// para extraer datos sencillos no hace falta y responde en ~0,5 s.
+export async function completar(
+  messages: Mensaje[],
+  { rapido = false }: { rapido?: boolean } = {},
+): Promise<string> {
   const { HELMCODE_API_KEY, HELMCODE_BASE_URL, HELMCODE_MODEL } = process.env;
   if (!HELMCODE_API_KEY || !HELMCODE_MODEL)
     throw new Error("Faltan HELMCODE_API_KEY o HELMCODE_MODEL en .env.local");
@@ -24,7 +29,11 @@ export async function completar(messages: Mensaje[]): Promise<string> {
           authorization: `Bearer ${HELMCODE_API_KEY}`,
           "content-type": "application/json",
         },
-        body: JSON.stringify({ model: HELMCODE_MODEL, messages }),
+        body: JSON.stringify({
+          model: HELMCODE_MODEL,
+          messages,
+          ...(rapido && { reasoning_effort: "none" }),
+        }),
       },
     );
     if (res.status === 429 && intento < 3) {

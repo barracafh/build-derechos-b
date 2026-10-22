@@ -174,7 +174,9 @@ export function buscarEnIndice(p: PerfilCiudadano, indice: Indice, limite = 15):
     const titulo = new Set(raices(`${c.titulo} ${r?.resumen ?? ""}`));
     const palabras = [...claves].filter((k) => titulo.has(k)).length;
     // Relevancia mínima: algún tema, palabra o requisito propio en común.
-    if (filtros.temas.length && !temas && !palabras && !ev.cumple.length) return [];
+    // (estar empadronado aquí no cuenta: lo cumplen casi todas las locales).
+    const personales = ev.cumple.filter((x) => !x.startsWith("pide estar empadronado")).length;
+    if (filtros.temas.length && !temas && !palabras && !personales) return [];
     for (const id of ev.faltan) faltanTodas.set(id, (faltanTodas.get(id) ?? 0) + 1);
     const puntos =
       temas * 3 + palabras + ev.cumple.length * 2 - ev.faltan.length +
@@ -190,7 +192,9 @@ export function buscarEnIndice(p: PerfilCiudadano, indice: Indice, limite = 15):
   });
 
   const resultados = puntuadas
-    .sort((a, b) => b.puntos - a.puntos || b.resultado.convocatoria.fechaRecepcion.localeCompare(a.resultado.convocatoria.fechaRecepcion))
+    .sort((a, b) =>
+      Number(b.resultado.encaje === "alto") - Number(a.resultado.encaje === "alto") ||
+      b.puntos - a.puntos || b.resultado.convocatoria.fechaRecepcion.localeCompare(a.resultado.convocatoria.fechaRecepcion))
     .slice(0, limite)
     .map((x) => x.resultado);
 

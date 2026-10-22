@@ -19,11 +19,9 @@ const catalogo = PREGUNTAS.map((p) =>
 ).join("\n");
 
 const SISTEMA = `Conviertes lo que cuenta una persona sobre su situación en un perfil para buscar ayudas públicas en España.
-Recibes el perfil que ya teníamos (puede estar vacío) y su nuevo mensaje.
-Responde SOLO con el perfil actualizado en JSON, sin texto alrededor, con estas claves y valores:
+Recibes un mensaje. Responde SOLO con un JSON, sin texto alrededor, que tenga ÚNICAMENTE las claves que el mensaje dice (omite el resto), con estas claves y valores:
 ${catalogo}
 Reglas:
-- Mantén lo que ya sabíamos salvo que el mensaje lo cambie.
 - Usa null si no se dice. No deduzcas ni inventes datos.
 - municipio: nombre oficial si lo dice (p. ej. "València", "Castelló de la Plana"). Si solo dice una comarca, municipio null, pero rellena la provincia si es inequívoca.
 - tipoPersona: "juridica" si quien pide es una entidad (asociación, fundación, empresa, sociedad, club…); "fisica" si es una persona, también si es autónoma (eso va en situacion: "autonomo"); null si no está claro.
@@ -52,8 +50,8 @@ export async function interpretar(
   try {
     const r = await completar([
       { role: "system", content: SISTEMA },
-      { role: "user", content: JSON.stringify({ perfilPrevio: previo, mensaje }) },
-    ]);
+      { role: "user", content: mensaje },
+    ], { rapido: true });
     // Se combina con el previo por si la IA olvida algo de lo que ya sabíamos.
     perfil = combinarPerfiles(previo, validarPerfil(leerJson(r)));
   } catch {

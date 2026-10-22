@@ -4,8 +4,61 @@ import { ArrowUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ruta } from "@/config/sitio";
-import type { MensajeChat, RespuestaChat } from "@/lib/chat";
-import type { Campo, Perfil } from "@/lib/perfil";
+import { AyudaPlegable } from "@/components/ResultadosMotor";
+import type { MensajeChat } from "@/lib/chat";
+import type { PerfilCiudadano, RespuestaBuscar } from "@/lib/bdns/tipos";
+
+// El chat usa el motor: cada mensaje va a POST /api/motor/perfil (texto →
+// PerfilCiudadano) y, cuando hay lo básico, POST /api/buscar (índice local).
+type Falta = { id: string; pregunta: string };
+
+// Lo mínimo antes de buscar; el resto lo afina después con preguntasUtiles.
+const BASICOS = ["ubicacion", "edad", "situacion"];
+const MAX_PREGUNTAS = 3;
+
+async function postJson<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(ruta(path), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error ?? "Algo ha fallado. Prueba de nuevo en un momento.");
+  return data as T;
+}
+
+const SITUACION: Record<string, string> = {
+  paro: "en paro",
+  empleo: "trabajando",
+  autonomo: "autónomo/a",
+  jubilado: "jubilado/a",
+  estudiante: "estudiando",
+};
+
+function entendido(p: PerfilCiudadano) {
+  const partes = [
+    p.ubicacion.municipio ?? p.ubicacion.provincia ?? p.ubicacion.ccaa,
+    p.edad != null && `${p.edad} años`,
+    p.situacion && SITUACION[p.situacion],
+    p.hijos != null && (p.hijos ? `${p.hijos} hijos` : "sin hijos"),
+    p.vivienda === "alquiler" && "de alquiler",
+  ].filter(Boolean);
+  return partes.length ? `Apuntado: ${partes.join(", ")}.` : "Gracias.";
+}
+
+// La respuesta final, sin IA: un mensaje corto y las ayudas plegadas debajo.
+const EN_CHAT = 5;
+function redactar(r: RespuestaBuscar): MensajeChat {
+  if (!r.resultados.length)
+    return { rol: "ayudita", texto: r.sinCoincidencias ?? "No he encontrado ayudas que encajen." };
+  const n = r.resultados.length;
+  const lineas = [
+    n === 1
+      ? "He encontrado una ayuda a la que podrías optar. Púlsala para ver el detalle:"
+      : `He encontrado ${n} ayudas a las que podrías optar. ${n > EN_CHAT ? `Estas son las ${EN_CHAT} que mejor encajan` : "Pulsa cada una para ver el detalle"}:`,
+  ];
+  return { rol: "ayudita", texto: lineas.join("\n"), resultados: r.resultados.slice(0, EN_CHAT) };
+}
 
 const saludo: MensajeChat = {
   rol: "ayudita",
@@ -69,8 +122,8 @@ function TextoAyudita({ texto }: { texto: string }) {
 // Lo que hace el servidor mientras prepara la respuesta final. Las dos
 // primeras son instantáneas; la última es la redacción, la que tarda.
 const pasosBusqueda = [
-  "Revisando ayudas del Estado y de la Generalitat",
-  "Consultando convocatorias de la BDNS",
+  "Revisando convocatorias del Estado, la comunidad y tu ayuntamiento",
+  "Cruzando sus requisitos con lo que me has contado",
   "Preparando tu respuesta",
 ];
 
@@ -93,18 +146,14 @@ function Escribiendo() {
 }
 
 export function Chat({
-  perfil,
-  onPerfil,
   completo,
-  onCompleto,
+  onRespuesta,
 }: {
-  perfil: Perfil;
-  onPerfil: (p: Perfil) => void;
   completo: boolean;
-  onCompleto: (completo: boolean) => void;
+  onRespuesta: (r: RespuestaBuscar | null) => void;
 }) {
   const [mensajes, setMensajes] = useState<MensajeChat[]>([saludo]);
-  const [rechazados, setRechazados] = useState<Campo[]>([]);
+  const [perfil, setPerfil] = useState<PerfilCiudadano | null>(null);
   const [texto, setTexto] = useState("");
   const [pensando, setPensando] = useState(false);
   // Palabras visibles del último mensaje mientras «se escribe».
@@ -136,84 +185,69 @@ export function Chat({
     });
   }, [mensajes.length, pensando, visibles, buscando]);
 
-  async function pedirFinal(conversacion: MensajeChat[], p: Perfil) {
+  async function buscar(conversacion: MensajeChat[], p: PerfilCiudadano) {
     setBuscando(0);
     const relojes = [
-      setTimeout(() => setBuscando(1), 1200),
-      setTimeout(() => setBuscando(2), 2600),
+      setTimeout(() => setBuscando(1), 600),
+      setTimeout(() => setBuscando(2), 1400),
     ];
-    let respuesta: string;
+    let respuesta: MensajeChat[];
     try {
-      const res = await fetch(ruta("/api/chat/final"), {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ perfil: p }),
+      const r = await postJson<RespuestaBuscar>("/api/buscar", { perfil: p });
+      respuesta = [redactar(r)];
+      const otra = r.preguntasUtiles?.[0];
+      respuesta.push({
+        rol: "ayudita",
+        texto: otra
+          ? `Para afinar más, ${otra.pregunta.charAt(0).toLowerCase()}${otra.pregunta.slice(1)}`
+          : "Si quieres, cuéntame algo más y vuelvo a mirar. Abajo tienes todas.",
       });
-      const data: { texto?: string; error?: string } = await res
-        .json()
-        .catch(() => ({}));
-      respuesta =
-        data.texto ??
-        data.error ??
-        "No he podido preparar la respuesta ahora mismo. Abajo tienes el detalle de cada ayuda.";
-    } catch {
-      respuesta =
-        "No he podido preparar la respuesta ahora mismo. Abajo tienes el detalle de cada ayuda.";
+      // Los resultados de abajo aparecen con la respuesta, no antes.
+      onRespuesta(r);
+    } catch (err) {
+      respuesta = [{ rol: "ayudita", texto: (err as Error).message }];
     }
     relojes.forEach(clearTimeout);
     setBuscando(null);
-    setMensajes([...conversacion, { rol: "ayudita", texto: respuesta }]);
+    setMensajes([...conversacion, ...respuesta]);
     setVisibles(prefiereMenosMovimiento() ? null : 0);
-    // Los resultados de abajo aparecen con la respuesta, no antes.
-    onCompleto(true);
     caja.current?.focus();
   }
 
   async function enviar(contenido: string) {
     const t = contenido.trim();
     if (!t || pensando || visibles !== null || buscando !== null) return;
-    const conversacion: MensajeChat[] = [
-      ...mensajes,
-      { rol: "usuario", texto: t },
-    ];
+    const conversacion: MensajeChat[] = [...mensajes, { rol: "usuario", texto: t }];
     setMensajes(conversacion);
     setTexto("");
     setPensando(true);
     try {
-      const res = await fetch(ruta("/api/chat"), {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ mensajes: conversacion, perfil, rechazados }),
-      });
-      const data: Partial<RespuestaChat> & { error?: string } = await res
-        .json()
-        .catch(() => ({}));
-      if (!res.ok || !data.texto) throw new Error(data.error);
-      const nuevo = data.perfil ?? perfil;
-      onPerfil(nuevo);
-      setRechazados(data.rechazados ?? rechazados);
-      onCompleto(false);
-      const conPuente: MensajeChat[] = [
-        ...conversacion,
-        { rol: "ayudita", texto: data.texto },
-      ];
-      setMensajes(conPuente);
-      setVisibles(prefiereMenosMovimiento() ? null : 0);
-      // Con el perfil completo, el mensaje puente sale ya y la respuesta final
-      // se pide aparte mientras se ven los pasos de la búsqueda.
-      if (data.completo) {
-        setPensando(false);
-        await pedirFinal(conPuente, nuevo);
+      const data = await postJson<{ perfil: PerfilCiudadano; faltan: Falta[] }>(
+        "/api/motor/perfil",
+        perfil ? { mensaje: t, perfil } : { mensaje: t },
+      );
+      setPerfil(data.perfil);
+      const juridica = data.perfil.tipoPersona === "juridica";
+      const falta = data.faltan.find((f) => (juridica ? f.id === "ubicacion" : BASICOS.includes(f.id)));
+      const vueltas = conversacion.filter((m) => m.rol === "usuario").length;
+      // Mientras falte lo básico (y sin interrogatorio), se pregunta. Si ya
+      // hay resultados, cada mensaje nuevo afina la búsqueda directamente.
+      if (falta && !completo && vueltas < MAX_PREGUNTAS) {
+        setMensajes([...conversacion, { rol: "ayudita", texto: `${entendido(data.perfil)} ${falta.pregunta}` }]);
+        setVisibles(prefiereMenosMovimiento() ? null : 0);
+        return;
       }
+      const puente: MensajeChat[] = [
+        ...conversacion,
+        { rol: "ayudita", texto: `${entendido(data.perfil)} Voy a mirar a qué ayudas podrías optar…` },
+      ];
+      setMensajes(puente);
+      setPensando(false);
+      await buscar(puente, data.perfil);
     } catch (err) {
       setMensajes([
         ...conversacion,
-        {
-          rol: "ayudita",
-          texto:
-            (err as Error).message ||
-            "Algo ha fallado al contestarte. Prueba de nuevo en un momento.",
-        },
+        { rol: "ayudita", texto: (err as Error).message || "Algo ha fallado al contestarte. Prueba de nuevo en un momento." },
       ]);
     } finally {
       setPensando(false);
@@ -258,6 +292,13 @@ export function Chat({
               <div className="min-w-0 rounded-2xl rounded-bl-md bg-muted px-4 py-3">
                 <span className="sr-only">Ayudita: </span>
                 <TextoAyudita texto={mostrado} />
+                {m.resultados && !(esUltimo && visibles !== null) && (
+                  <div className="mt-3 grid gap-2">
+                    {m.resultados.map((x) => (
+                      <AyudaPlegable key={x.convocatoria.numeroBDNS} r={x} />
+                    ))}
+                  </div>
+                )}
               </div>
             </li>
           );

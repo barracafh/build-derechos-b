@@ -7,6 +7,9 @@ import { Chat } from "@/components/Chat";
 import { Llamada } from "@/components/Llamada";
 import { PasoAPaso } from "@/components/PasoAPaso";
 import { Resultados } from "@/components/Resultados";
+import { ResultadosMotor } from "@/components/ResultadosMotor";
+import type { RespuestaBuscar } from "@/lib/bdns/tipos";
+import { aPerfilCiudadano } from "@/lib/perfil-motor";
 import { ruta } from "@/config/sitio";
 import { buscarAyudas } from "@/lib/ayudas";
 import type { RespuestaConvocatorias } from "@/lib/bdns";
@@ -276,8 +279,12 @@ export function Buscador() {
   const [confirmando, setConfirmando] = useState(false);
   // En el formulario, los resultados salen al terminar las preguntas.
   const [formularioListo, setFormularioListo] = useState(false);
-  const [chatListo, setChatListo] = useState(false);
   const [llamadaLista, setLlamadaLista] = useState(false);
+  // El chat va con el motor (PerfilCiudadano + /api/buscar), no con Perfil.
+  const [respuestaChat, setRespuestaChat] = useState<RespuestaBuscar | null>(null);
+  const chatListo = respuestaChat !== null;
+  // El formulario conserva sus preguntas; al terminar busca con el motor.
+  const [respuestaForm, setRespuestaForm] = useState<RespuestaBuscar | "cargando" | "error" | null>(null);
   const [perfil, setPerfil] = useState<Perfil>({});
   const [bdns, setBdns] = useState<RespuestaConvocatorias | "error" | null>(
     null,
@@ -295,6 +302,26 @@ export function Buscador() {
   }, []);
 
   useEffect(() => {
+    if (modo !== "formulario" || !formularioListo) {
+      setRespuestaForm(null);
+      return;
+    }
+    let vigente = true;
+    setRespuestaForm("cargando");
+    fetch(ruta("/api/buscar"), {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ perfil: aPerfilCiudadano(perfil) }),
+    })
+      .then((res) => (res.ok ? res.json() : Promise.reject()))
+      .then((r) => vigente && setRespuestaForm(r))
+      .catch(() => vigente && setRespuestaForm("error"));
+    return () => {
+      vigente = false;
+    };
+  }, [modo, formularioListo, perfil]);
+
+  useEffect(() => {
     const d = ventana.current;
     if (!d) return;
     if (modo && !d.open) d.showModal();
@@ -307,7 +334,7 @@ export function Buscador() {
     setPerfil({});
     setFormularioListo(false);
     setLlamadaLista(false);
-    setChatListo(false);
+    setRespuestaChat(null);
   }
 
   return (
@@ -366,12 +393,7 @@ export function Buscador() {
             <div className="px-(--page-gutter) py-8 md:px-8 [&>*+*]:mt-12">
               <section aria-label={modos[modo].nombre} className="[&>*+*]:mt-8">
                 {modo === "chat" && (
-                  <Chat
-                    perfil={perfil}
-                    onPerfil={setPerfil}
-                    completo={chatListo}
-                    onCompleto={setChatListo}
-                  />
+                  <Chat completo={chatListo} onRespuesta={setRespuestaChat} />
                 )}
                 {modo === "formulario" && (
                   <PasoAPaso
@@ -389,24 +411,35 @@ export function Buscador() {
                   />
                 )}
 
-                {hayResultado &&
-                  ((modo === "llamada" && llamadaLista) ||
-                    (modo === "chat" && chatListo)) && (
-                    <details className="rounded-xl px-5 py-4 text-base ring-1 ring-foreground/10">
-                      <summary className="cursor-pointer rounded-sm font-medium outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
-                        Corregir lo que he entendido
-                      </summary>
-                      <div className="mt-5">
-                        <Formulario perfil={perfil} onChange={setPerfil} />
-                      </div>
-                    </details>
-                  )}
+                {hayResultado && modo === "llamada" && llamadaLista && (
+                  <details className="rounded-xl px-5 py-4 text-base ring-1 ring-foreground/10">
+                    <summary className="cursor-pointer rounded-sm font-medium outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
+                      Corregir lo que he entendido
+                    </summary>
+                    <div className="mt-5">
+                      <Formulario perfil={perfil} onChange={setPerfil} />
+                    </div>
+                  </details>
+                )}
               </section>
 
-              {hayResultado &&
-                ((modo === "llamada" && llamadaLista) ||
-                  (modo === "chat" && chatListo) ||
-                  (modo === "formulario" && formularioListo)) && (
+              {modo === "chat" && respuestaChat && <ResultadosMotor r={respuestaChat} />}
+
+              {modo === "formulario" && respuestaForm === "cargando" && (
+                <p role="status" className="text-base text-(--text-secondary)">
+                  Buscando las convocatorias a las que podrías optar…
+                </p>
+              )}
+              {modo === "formulario" && respuestaForm === "error" && (
+                <p role="status" className="text-base">
+                  No hemos podido hacer la búsqueda. Cuéntanos al menos dónde vives o tu situación, o prueba en un momento.
+                </p>
+              )}
+              {modo === "formulario" && respuestaForm && typeof respuestaForm === "object" && (
+                <ResultadosMotor r={respuestaForm} />
+              )}
+
+              {hayResultado && modo === "llamada" && llamadaLista && (
                   <Resultados perfil={perfil} busqueda={busqueda} bdns={bdns} />
                 )}
             </div>

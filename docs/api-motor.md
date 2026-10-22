@@ -109,6 +109,7 @@ bun scripts/indexar.ts                 # todo, con IA ×2 (reutiliza las fichas 
 - Cada requisito lleva una **cita literal** del extracto; si la cita no está en el texto, se descarta.
 - `[]` y `null` = «no lo dice»: nunca excluye. Excluye solo si el perfil y la convocatoria se conocen y chocan (mujer ≠ hombre).
 - Si el perfil no tiene el dato, la convocatoria sale con `aComprobar` («Es solo para mujeres») y `preguntasUtiles` dice qué preguntar después.
+- Para añadir ciudades: `docs/indexar-ciudades.md`.
 - Si el municipio del perfil tiene índice, `/api/buscar` responde en local: `origen: "indice"`, sin BDNS ni IA. Si no, usa la API en vivo. `MOTOR_SIN_INDICE=1` lo desactiva.
 
 ## Pendiente
