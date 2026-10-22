@@ -1,21 +1,18 @@
-import copia from "../../../../datos/bdns-convocatorias-cv.json";
-import { buscarAyudas } from "../../../lib/ayudas";
-import { convocatoriasPara, desdeCopia } from "../../../lib/bdns";
 import type { MensajeChat, RespuestaChat } from "../../../lib/chat";
 import { completar, type Mensaje } from "../../../lib/ia";
 import {
   camposQueFaltan,
   esCampo,
   limpiarPerfil,
-  resumenPerfil,
   type Campo,
   type Perfil,
 } from "../../../lib/perfil";
 
 // POST {"mensajes": [...], "perfil": {...}, "rechazados": [...]} devuelve la
 // respuesta de Ayudita y el perfil actualizado. La IA conversa y pasa el texto a
-// campos; qué falta y qué ayudas encajan lo decide el servidor con las reglas
-// de lib/. No se guarda ni se registra nada de la conversación.
+// campos; qué falta lo decide el servidor. Con el perfil completo contesta al
+// momento con un mensaje puente y la respuesta final se pide a /api/chat/final.
+// No se guarda ni se registra nada de la conversación.
 
 const extraer = `Eres Ayudita, una herramienta que ayuda a la ciudadanía de València a saber a qué ayudas públicas podría optar. Hablas en castellano llano, cercano y breve, tuteando.
 
@@ -40,18 +37,6 @@ Lee la conversación y responde SOLO con un objeto JSON, sin texto alrededor:
 
 Nunca pidas nombre, DNI, dirección, teléfono ni otros datos personales. No hables todavía de ayudas concretas.`;
 
-const redactar = `Eres Ayudita. Escribe la respuesta final para la persona, en castellano llano, cercano y claro, tuteando. Usa SOLO los datos del JSON que te paso.
-
-Formato:
-- Una frase de entrada que resuma su situación.
-- Por cada ayuda de "podrias", un bloque (si trae "aviso", inclúyelo en ese bloque) que empiece con una línea "- " con su nombre; debajo, en una o dos frases, por qué podría encajar (solo los motivos dados) y su plazo tal cual; y una línea final "Pídela aquí: <enlace>" con el enlace exacto.
-- Si hay "convocatorias", menciónalas igual de breve, con su enlace exacto.
-- Si hay "cerradas", dilo en una frase.
-- Si hay "huecos", explica en una o dos frases lo que no has podido consultar.
-- Cierra con una frase que recuerde comprobar los requisitos en la web oficial antes de pedirla.
-
-Reglas: di «podrías optar», nunca «tienes derecho» ni «te corresponde». No añadas importes, plazos, requisitos ni enlaces que no estén en el JSON. Sin negritas, sin títulos y sin markdown, salvo las líneas que empiezan por "- ". Los enlaces van como URL completa.`;
-
 const preguntas: Record<Campo, string> = {
   zona: "¿En qué municipio vives?",
   edad: "¿Cuántos años tienes?",
@@ -65,53 +50,12 @@ const preguntas: Record<Campo, string> = {
 
 // Tras varias vueltas, se busca con lo que haya para no hacer un interrogatorio.
 const maxPreguntas = 5;
-const convocatorias = copia.convocatorias.map(desdeCopia);
-
 function leerJson(texto: string): Record<string, unknown> {
   try {
     return JSON.parse(texto.match(/\{[\s\S]*\}/)?.[0] ?? "");
   } catch {
     return {};
   }
-}
-
-function datosFinales(p: Perfil) {
-  const b = buscarAyudas(p);
-  const bdns = convocatoriasPara(convocatorias, p);
-  return {
-    situacion: resumenPerfil(p),
-    podrias: b.podrias.map((r) => ({
-      nombre: r.ayuda.titulo,
-      motivos: r.motivos,
-      plazo: r.estado.texto,
-      // Sin trámite publicado (la RVI), se remite a la sede, no a la ley.
-      enlace: r.ayuda.enlace_tramite ?? "https://sede.gva.es",
-      aviso: r.ayuda.verificado
-        ? undefined
-        : "La ley cambió el 20/10/2026 y el procedimiento nuevo no está publicado: que pregunte en servicios sociales o en el 012.",
-    })),
-    convocatorias: bdns.encajan.map((c) => ({
-      nombre: c.convocatoria.titulo,
-      motivo: c.motivo,
-      plazo: c.estado.texto,
-      enlace: c.convocatoria.url,
-    })),
-    cerradas: b.cerradas.map((r) => `${r.ayuda.titulo}: ${r.estado.texto}`),
-    huecos: b.huecos,
-  };
-}
-
-// Quita cualquier enlace que no venga de los datos y la promesa de derechos.
-function revisar(texto: string, permitidos: Set<string>) {
-  return texto
-    .replace(/https?:\/\/[^\s)]+/g, (url) => {
-      const limpia = url.replace(/[.,;:]+$/, "");
-      return permitidos.has(limpia) ? url : "";
-    })
-    .replace(/tienes derecho a/gi, "podrías optar a")
-    .replace(/te corresponde/gi, "podría encajarte")
-    .replace(/\*\*/g, "")
-    .trim();
 }
 
 export async function POST(req: Request) {
@@ -181,17 +125,10 @@ export async function POST(req: Request) {
       } satisfies RespuestaChat);
     }
 
-    const datos = datosFinales(perfil);
-    const permitidos = new Set([
-      ...datos.podrias.map((a) => a.enlace),
-      ...datos.convocatorias.map((c) => c.enlace),
-    ]);
-    const final = await completar([
-      { role: "system", content: redactar },
-      { role: "user", content: JSON.stringify(datos) },
-    ]);
     return Response.json({
-      texto: revisar(final, permitidos),
+      texto: faltan.length
+        ? "Con lo que me has contado ya puedo buscar. Voy a mirar a qué ayudas podrías optar, dame unos segundos…"
+        : "Perfecto, ya tengo lo que necesito. Voy a mirar a qué ayudas podrías optar, dame unos segundos…",
       perfil,
       rechazados,
       completo: true,

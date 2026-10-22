@@ -66,6 +66,14 @@ function TextoAyudita({ texto }: { texto: string }) {
   );
 }
 
+// Lo que hace el servidor mientras prepara la respuesta final. Las dos
+// primeras son instantáneas; la última es la redacción, la que tarda.
+const pasosBusqueda = [
+  "Revisando ayudas del Estado y de la Generalitat",
+  "Consultando convocatorias de la BDNS",
+  "Preparando tu respuesta",
+];
+
 function Escribiendo() {
   return (
     <div
@@ -101,6 +109,8 @@ export function Chat({
   const [pensando, setPensando] = useState(false);
   // Palabras visibles del último mensaje mientras «se escribe».
   const [visibles, setVisibles] = useState<number | null>(null);
+  // Paso de la búsqueda final que se muestra, o null si no se está buscando.
+  const [buscando, setBuscando] = useState<number | null>(null);
   const final = useRef<HTMLDivElement>(null);
   const caja = useRef<HTMLTextAreaElement>(null);
 
@@ -113,7 +123,9 @@ export function Chat({
       setVisibles(null);
       return;
     }
-    const t = setTimeout(() => setVisibles((v) => (v ?? 0) + 4), 28);
+    // Los textos largos se escriben más deprisa: como mucho, unos 1,5 s.
+    const paso = Math.max(4, Math.ceil(palabras.length / 50));
+    const t = setTimeout(() => setVisibles((v) => (v ?? 0) + paso), 28);
     return () => clearTimeout(t);
   }, [visibles, palabras.length]);
 
@@ -122,11 +134,44 @@ export function Chat({
       block: "end",
       behavior: prefiereMenosMovimiento() ? "auto" : "smooth",
     });
-  }, [mensajes.length, pensando, visibles]);
+  }, [mensajes.length, pensando, visibles, buscando]);
+
+  async function pedirFinal(conversacion: MensajeChat[], p: Perfil) {
+    setBuscando(0);
+    const relojes = [
+      setTimeout(() => setBuscando(1), 1200),
+      setTimeout(() => setBuscando(2), 2600),
+    ];
+    let respuesta: string;
+    try {
+      const res = await fetch(ruta("/api/chat/final"), {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ perfil: p }),
+      });
+      const data: { texto?: string; error?: string } = await res
+        .json()
+        .catch(() => ({}));
+      respuesta =
+        data.texto ??
+        data.error ??
+        "No he podido preparar la respuesta ahora mismo. Abajo tienes el detalle de cada ayuda.";
+    } catch {
+      respuesta =
+        "No he podido preparar la respuesta ahora mismo. Abajo tienes el detalle de cada ayuda.";
+    }
+    relojes.forEach(clearTimeout);
+    setBuscando(null);
+    setMensajes([...conversacion, { rol: "ayudita", texto: respuesta }]);
+    setVisibles(prefiereMenosMovimiento() ? null : 0);
+    // Los resultados de abajo aparecen con la respuesta, no antes.
+    onCompleto(true);
+    caja.current?.focus();
+  }
 
   async function enviar(contenido: string) {
     const t = contenido.trim();
-    if (!t || pensando || visibles !== null) return;
+    if (!t || pensando || visibles !== null || buscando !== null) return;
     const conversacion: MensajeChat[] = [
       ...mensajes,
       { rol: "usuario", texto: t },
@@ -144,11 +189,22 @@ export function Chat({
         .json()
         .catch(() => ({}));
       if (!res.ok || !data.texto) throw new Error(data.error);
-      onPerfil(data.perfil ?? perfil);
+      const nuevo = data.perfil ?? perfil;
+      onPerfil(nuevo);
       setRechazados(data.rechazados ?? rechazados);
-      onCompleto(Boolean(data.completo));
-      setMensajes([...conversacion, { rol: "ayudita", texto: data.texto }]);
+      onCompleto(false);
+      const conPuente: MensajeChat[] = [
+        ...conversacion,
+        { rol: "ayudita", texto: data.texto },
+      ];
+      setMensajes(conPuente);
       setVisibles(prefiereMenosMovimiento() ? null : 0);
+      // Con el perfil completo, el mensaje puente sale ya y la respuesta final
+      // se pide aparte mientras se ven los pasos de la búsqueda.
+      if (data.completo) {
+        setPensando(false);
+        await pedirFinal(conPuente, nuevo);
+      }
     } catch (err) {
       setMensajes([
         ...conversacion,
@@ -170,7 +226,7 @@ export function Chat({
     enviar(texto);
   }
 
-  const ocupado = pensando || visibles !== null;
+  const ocupado = pensando || visibles !== null || buscando !== null;
 
   return (
     <div className="grid gap-6 text-base">
@@ -219,6 +275,38 @@ export function Chat({
             <div className="rounded-2xl rounded-bl-md bg-muted px-4 py-3">
               <Escribiendo />
             </div>
+          </li>
+        )}
+        {buscando !== null && (
+          <li className="flex items-end gap-3">
+            {/* eslint-disable-next-line @next/next/no-img-element -- SVG estático */}
+            <img
+              src={ruta("/ayudita-isotipo.svg")}
+              alt=""
+              width={36}
+              height={36}
+              className="size-8 shrink-0"
+            />
+            <ol
+              aria-label="Buscando ayudas"
+              className="grid gap-1.5 rounded-2xl rounded-bl-md bg-muted px-4 py-3"
+            >
+              {pasosBusqueda.slice(0, buscando + 1).map((paso, i) =>
+                i < buscando ? (
+                  <li key={paso} className="text-(--text-secondary)">
+                    {paso}
+                  </li>
+                ) : (
+                  <li
+                    key={paso}
+                    className="flex items-center gap-3 font-medium"
+                  >
+                    {paso}
+                    <Escribiendo />
+                  </li>
+                ),
+              )}
+            </ol>
           </li>
         )}
       </ol>
