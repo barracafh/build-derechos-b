@@ -1,6 +1,6 @@
 > **Build night BARRACA x SOTI** · 22 de octubre de 2026, Flywire, València.
 >
-> **Ayudita**, de TerretaHub (track Derechos). Descubre a qué ayudas públicas podrías optar. Publicada en https://build.barraca.house/derechos-b; la IA funciona hasta el 30 de noviembre de 2026.
+> **Ayudita**, de TerretaHub (track Derechos). Descubre a qué ayudas públicas podrías optar. Publicada en https://build.barraca.house/punto-atencion-ciudadana/derechos-b; la IA funciona hasta el 30 de noviembre de 2026.
 >
 > Repo archivado: es el código tal como quedó tras la noche. Si quieres seguir con él, haz un fork. El CLI del evento y su registro ya no existen, así que las instrucciones de `buildnight` que haya más abajo ya no sirven.
 
